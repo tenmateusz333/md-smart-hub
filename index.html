@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MD Smart Hub v1.2</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div id="boot">
+    <div class="boot-logo">MD</div>
+    <div class="boot-title">SMART HUB v1.2</div>
+    <div class="boot-line"></div>
+  </div>
+
+  <main class="app">
+    <section class="topbar">
+      <div>
+        <div id="time" class="time">--:--</div>
+        <div id="date" class="date">Ładowanie...</div>
+      </div>
+      <div class="top-pills">
+        <div class="pill">Wi‑Fi</div>
+        <div class="pill">BT</div>
+        <div class="pill accent">MD</div>
+      </div>
+    </section>
+
+    <section id="home" class="screen active">
+      <div class="hero-card glass">
+        <div>
+          <div class="eyebrow">System</div>
+          <h1>MD Smart Hub</h1>
+          <p>Panel sterowania pokojem. Spotify, pogoda, światła i smart funkcje.</p>
+        </div>
+        <button class="main-btn" onclick="showScreen('spotify')">Spotify</button>
+      </div>
+
+      <div class="grid">
+        <button class="tile glass spotify-tile" onclick="showScreen('spotify')">
+          <span class="icon">🎵</span>
+          <span class="tile-title">Muzyka</span>
+          <span class="tile-value">Spotify</span>
+        </button>
+
+        <button class="tile glass" onclick="toast('Temperatura pokoju będzie w Home Assistant')">
+          <span class="icon">🌡️</span>
+          <span class="tile-title">Pokój</span>
+          <span class="tile-value">21.5°C</span>
+        </button>
+
+        <button class="tile glass" onclick="toast('Światła dodamy po podłączeniu smart żarówek')">
+          <span class="icon">💡</span>
+          <span class="tile-title">Światła</span>
+          <span class="tile-value">Gotowe</span>
+        </button>
+
+        <button class="tile glass" onclick="toast('Prawdziwa pogoda będzie w v1.3')">
+          <span class="icon">🌤️</span>
+          <span class="tile-title">Pogoda</span>
+          <span class="tile-value">18°C</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="spotify" class="screen">
+      <div class="spotify-screen glass">
+        <div class="screen-header">
+          <button class="back-btn" onclick="showScreen('home')">←</button>
+          <div>
+            <div class="eyebrow">Muzyka</div>
+            <h2>Spotify</h2>
+          </div>
+        </div>
+
+        <div class="album-art">🎧</div>
+
+        <div class="track-info">
+          <div class="track-title">Spotify Web Player</div>
+          <div class="track-subtitle">Otwórz pełny odtwarzacz</div>
+        </div>
+
+        <div class="fake-progress">
+          <span></span>
+        </div>
+
+        <div class="controls">
+          <button>⏮</button>
+          <button class="play">▶</button>
+          <button>⏭</button>
+        </div>
+
+        <button class="spotify-open" onclick="openSpotify()">Otwórz Spotify</button>
+      </div>
+    </section>
+
+    <section class="bottom glass">
+      <div>
+        <strong>MD Smart Hub v1.2</strong>
+        <span id="toast">System gotowy</span>
+      </div>
+      <button class="small-btn" onclick="location.reload()">Odśwież</button>
+    </section>
+  </main>
+
+  <script src="assets/js/script.js"></script>
+</body>
+</html>
