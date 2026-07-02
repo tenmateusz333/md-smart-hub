@@ -86,6 +86,7 @@ async function loadWeather() {
     document.getElementById("weatherTemp").textContent = `${temp}°C`;
     document.getElementById("weatherDesc").textContent = codeText(code);
     document.getElementById("weatherIcon").textContent = codeIcon(code);
+    document.getElementById("homeWeatherIcon").textContent = codeIcon(code);
     document.getElementById("wind").textContent = `${wind} km/h`;
     document.getElementById("city").textContent = config.city;
   } catch (error) {
@@ -126,6 +127,7 @@ async function loadSystem() {
     const ram = Math.round(data.ram_percent);
 
     document.getElementById("tempTile").textContent = `${temp}°C`;
+    document.getElementById("topTemp").textContent = `CPU ${temp}°C`;
     document.getElementById("cpuTemp").textContent = `${temp}°C`;
     document.getElementById("cpuLoad").textContent = `${cpu}%`;
     document.getElementById("ram").textContent = `${ram}%`;

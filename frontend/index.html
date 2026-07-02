@@ -8,64 +8,83 @@
 </head>
 <body>
   <div id="boot">
-    <div class="boot-logo">MD</div>
-    <div class="boot-title">SMART HUB OS</div>
-    <div class="boot-subtitle">v2.0</div>
+    <div class="boot-mark">MD</div>
+    <div class="boot-name">SMART HUB OS</div>
+    <div class="boot-version">v2.1</div>
   </div>
 
   <main class="app">
     <header class="topbar">
-      <div>
+      <div class="clock-block">
         <div id="time" class="time">--:--</div>
         <div id="date" class="date">Ładowanie...</div>
       </div>
 
-      <div class="status">
+      <div class="status-strip">
         <span id="wifi">Wi‑Fi</span>
-        <span id="bt">BT</span>
-        <span>MD</span>
+        <span id="bt">Bluetooth</span>
+        <span id="topTemp">CPU --°C</span>
+        <span class="user-dot">MD</span>
       </div>
     </header>
 
     <section id="home" class="screen active">
-      <div class="hero glass">
-        <div>
-          <p class="eyebrow">Dashboard</p>
-          <h1>MD Smart Hub</h1>
-          <p class="muted">System sterowania pokojem, muzyką i smart home.</p>
-        </div>
-        <button onclick="showScreen('system')">System</button>
-      </div>
+      <div class="main-layout">
+        <section class="hero glass">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h1>MD Smart Hub</h1>
+            <p class="muted">Twój panel sterowania pokojem, muzyką i smart home.</p>
+          </div>
 
-      <div class="tiles">
-        <button class="tile spotify" onclick="showScreen('spotify')">
-          <span>🎵</span>
-          <small>Muzyka</small>
-          <strong>Spotify</strong>
-        </button>
+          <div class="hero-side">
+            <div class="hero-chip">ONLINE</div>
+            <button onclick="showScreen('system')">System</button>
+          </div>
+        </section>
 
-        <button class="tile" onclick="showScreen('weather')">
-          <span>🌤️</span>
-          <small>Pogoda</small>
-          <strong id="weatherTile">--°C</strong>
-        </button>
+        <section class="media-card glass" onclick="showScreen('spotify')">
+          <div class="media-top">
+            <span class="spotify-logo">●</span>
+            <strong>Spotify</strong>
+          </div>
+          <div class="cover">🎧</div>
+          <div>
+            <h3>Web Player</h3>
+            <p class="muted">Dotknij, żeby otworzyć odtwarzacz.</p>
+          </div>
+        </section>
 
-        <button class="tile" onclick="showScreen('system')">
-          <span>🖥️</span>
-          <small>Raspberry</small>
-          <strong id="tempTile">--°C</strong>
-        </button>
+        <section class="tiles">
+          <button class="tile weather-tile" onclick="showScreen('weather')">
+            <span class="tile-icon" id="homeWeatherIcon">🌤️</span>
+            <small>Pogoda</small>
+            <strong id="weatherTile">--°C</strong>
+          </button>
 
-        <button class="tile" onclick="toast('Światła dodamy przez Home Assistant')">
-          <span>💡</span>
-          <small>Światła</small>
-          <strong>Soon</strong>
-        </button>
+          <button class="tile system-tile" onclick="showScreen('system')">
+            <span class="tile-icon">🖥️</span>
+            <small>Raspberry</small>
+            <strong id="tempTile">--°C</strong>
+          </button>
+
+          <button class="tile" onclick="toast('Światła dodamy przez Home Assistant')">
+            <span class="tile-icon">💡</span>
+            <small>Światła</small>
+            <strong>Soon</strong>
+          </button>
+
+          <button class="tile" onclick="toast('Sceny pojawią się w module Home Assistant')">
+            <span class="tile-icon">✨</span>
+            <small>Sceny</small>
+            <strong>Later</strong>
+          </button>
+        </section>
       </div>
     </section>
 
     <section id="spotify" class="screen">
-      <div class="panel glass">
+      <div class="panel glass player-panel">
         <div class="screen-head">
           <button class="back" onclick="showScreen('home')">←</button>
           <div>
@@ -74,9 +93,9 @@
           </div>
         </div>
 
-        <div class="album">🎧</div>
+        <div class="album premium">🎧</div>
         <h3>Spotify Web Player</h3>
-        <p class="muted center">Docelowo tutaj będzie prawdziwy utwór, okładka i sterowanie.</p>
+        <p class="muted center">v2.2 podłączymy Spotify API: okładki, tytuł, play/pause.</p>
 
         <div class="progress"><i></i></div>
 
@@ -91,7 +110,7 @@
     </section>
 
     <section id="weather" class="screen">
-      <div class="panel glass">
+      <div class="panel glass weather-panel">
         <div class="screen-head">
           <button class="back" onclick="showScreen('home')">←</button>
           <div>
@@ -155,7 +174,7 @@
 
     <footer class="bottom glass">
       <div>
-        <strong>MD Smart Hub OS v2.0</strong>
+        <strong>MD Smart Hub OS v2.1</strong>
         <span id="toast">System gotowy</span>
       </div>
       <button onclick="location.reload()">Odśwież</button>

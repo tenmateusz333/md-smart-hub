@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.1
+- Przebudowany dashboard premium.
+- Nowy układ główny pod ekran 7 cali.
+- Lepszy kafelek Spotify.
+- Lepszy pasek statusu.
+- Większe karty pogody i systemu.
+- Poprawiona typografia i efekt szkła.
+
 ## v2.0
 - Nowa struktura projektu.
 - Oddzielony frontend i backend.

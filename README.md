@@ -4,7 +4,7 @@ Własny panel smart home na Raspberry Pi z ekranem dotykowym.
 
 ## Aktualna wersja
 
-v2.0
+v2.1 Premium UI
 
 ## Struktura
 
