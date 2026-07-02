@@ -1,74 +1,43 @@
-# MD Smart Hub OS
+# MD Smart Hub OS v4.0 Alpha App Edition
 
-## Aktualna wersja
+To jest pierwsza wersja aplikacji pełnoekranowej, bez Chromium i bez serwera strony internetowej.
 
-v3.0 RC1.3 Fix
+## Co zawiera
 
-To jest kandydat testowy. RC1 skupia się na stabilnym froncie i Spotify API. Spotify Connect na Raspberry + Bluetooth soundbar będzie w RC2.
+- natywna aplikacja Python/Tkinter,
+- pełny ekran 1024x600,
+- dashboard,
+- zegar,
+- pogoda,
+- CPU/RAM/temp,
+- ekran ustawień,
+- przygotowanie pod Spotify Native w v4.1.
 
-## Co zawiera RC1
+## Uruchomienie na Raspberry
 
-- nowy układ 1024x600
-- boczne menu
-- nowy odtwarzacz Spotify
-- przewijanie utworu
-- wyszukiwarka Spotify
-- otwieranie playlist
-- lista utworów w playliście
-- odtwarzanie utworu z playlisty
-- wybór urządzenia Spotify
-- nowa czytelna klawiatura ekranowa
-- lepsze komunikaty błędów
-
-## Po aktualizacji
+Po wrzuceniu paczki do repozytorium i `git pull`:
 
 ```bash
 cd ~/md-smart-hub
-git pull
-pkill -f server.py
-python3 backend/server.py
+chmod +x scripts/*.sh
+./scripts/install.sh
+./scripts/start-app.sh
 ```
 
-Jeżeli Spotify działa dziwnie po aktualizacji:
+## Wyjście z pełnego ekranu
 
-1. W panelu kliknij `Reset`.
-2. Kliknij `Autoryzuj`.
-3. Zaakceptuj zgody Spotify.
-4. Włącz muzykę na telefonie/komputerze.
-5. W panelu wejdź w `Urządzenia` i odśwież.
+- `ESC` wyłącza pełny ekran,
+- `F11` przełącza pełny ekran,
+- w ustawieniach jest przycisk zamykania aplikacji.
 
-## Spotify Redirect URI
+## Autostart
 
-W Spotify Developer Dashboard musi być:
+Po przetestowaniu możesz włączyć autostart:
 
-```text
-http://127.0.0.1:8765/callback
+```bash
+./scripts/install-autostart.sh
 ```
 
+## Ważne
 
-## Ważne po RC1.1
-
-Po tej aktualizacji trzeba ponownie połączyć Spotify:
-
-1. Otwórz panel.
-2. Kliknij `Reset`.
-3. Kliknij `Autoryzuj`.
-4. Zaakceptuj zgody.
-5. Sprawdź playlisty ponownie.
-
-To jest potrzebne, bo playlisty wymagają nowych uprawnień Spotify.
-
-
-## RC1.2
-
-- twarda poprawka klawiatury QWERTY,
-- bezpieczniejsze przyciski playlist,
-- dokładniejszy błąd playlist Spotify.
-
-
-## RC1.3
-
-- Wymuszona poprawka backendu playlist.
-- Dodany endpoint `/api/debug/version`.
-- Panel pokazuje już wersję RC1.3.
-- Dodatkowo wzmocniono układ klawiatury.
+To jest wersja Alpha. Spotify jeszcze nie jest przeniesione. Wróci w v4.1 jako natywny moduł aplikacji.

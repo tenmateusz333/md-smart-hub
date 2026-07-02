@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -e
-echo "MD Smart Hub OS installer"
-echo "RC1 nie instaluje jeszcze Spotify Connect. To będzie w RC2."
+
+cd "$(dirname "$0")/.."
+
+echo "MD Smart Hub OS v4.0 Alpha App Edition"
+echo "Instaluję podstawowe zależności aplikacji..."
+
 sudo apt update
-sudo apt install -y python3 git chromium-browser || true
+sudo apt install -y python3 python3-tk git
+
+chmod +x scripts/*.sh
+
+echo ""
 echo "Gotowe."
-echo "Uruchom: python3 backend/server.py"
+echo "Uruchom aplikację:"
+echo "./scripts/start-app.sh"
