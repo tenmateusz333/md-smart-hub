@@ -10,12 +10,12 @@
   <div id="boot">
     <div class="boot-mark">MD</div>
     <div class="boot-name">SMART HUB OS</div>
-    <div class="boot-version">v2.2</div>
+    <div class="boot-version">v2.3</div>
   </div>
 
   <main class="app">
     <header class="topbar">
-      <div class="clock-block">
+      <div>
         <div id="time" class="time">--:--</div>
         <div id="date" class="date">Ładowanie...</div>
       </div>
@@ -68,16 +68,16 @@
             <strong id="tempTile">--°C</strong>
           </button>
 
-          <button class="tile" onclick="toast('Światła dodamy przez Home Assistant')">
-            <span class="tile-icon">💡</span>
-            <small>Światła</small>
-            <strong>Soon</strong>
+          <button class="tile" onclick="showScreen('spotifySearch')">
+            <span class="tile-icon">🔎</span>
+            <small>Szukaj</small>
+            <strong>Utwory</strong>
           </button>
 
-          <button class="tile" onclick="toast('Sceny pojawią się w module Home Assistant')">
-            <span class="tile-icon">✨</span>
-            <small>Sceny</small>
-            <strong>Later</strong>
+          <button class="tile" onclick="showScreen('playlists')">
+            <span class="tile-icon">📚</span>
+            <small>Spotify</small>
+            <strong>Playlisty</strong>
           </button>
         </section>
       </div>
@@ -98,19 +98,67 @@
         <p id="spotifyArtist" class="muted center">Połącz konto Spotify.</p>
 
         <div class="progress"><i id="spotifyProgress"></i></div>
-
         <div class="time-row">
           <span id="spotifyElapsed">0:00</span>
           <span id="spotifyDuration">0:00</span>
         </div>
 
-        <div class="controls">
+        <div class="controls big-controls">
           <button onclick="spotifyControl('previous')">⏮</button>
           <button id="spotifyPlay" class="play" onclick="spotifyControl('playpause')">▶</button>
           <button onclick="spotifyControl('next')">⏭</button>
         </div>
 
+        <div class="volume-row">
+          <span>🔊</span>
+          <input id="volumeSlider" type="range" min="0" max="100" value="50" onchange="setSpotifyVolume(this.value)">
+          <strong id="volumeText">--%</strong>
+        </div>
+
+        <div class="spotify-actions">
+          <button onclick="showScreen('spotifySearch')">Szukaj</button>
+          <button onclick="showScreen('playlists')">Playlisty</button>
+        </div>
+
         <button id="spotifyLoginBtn" class="wide" onclick="connectSpotify()">Połącz Spotify</button>
+      </div>
+    </section>
+
+    <section id="spotifySearch" class="screen">
+      <div class="panel glass list-panel">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('spotify')">←</button>
+          <div>
+            <p class="eyebrow">Spotify</p>
+            <h2>Szukaj</h2>
+          </div>
+        </div>
+
+        <div class="search-row">
+          <input id="searchInput" placeholder="Wpisz utwór lub artystę">
+          <button onclick="searchSpotify()">Szukaj</button>
+        </div>
+
+        <div id="searchResults" class="result-list">
+          <p class="muted">Wyniki wyszukiwania pojawią się tutaj.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="playlists" class="screen">
+      <div class="panel glass list-panel">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('spotify')">←</button>
+          <div>
+            <p class="eyebrow">Spotify</p>
+            <h2>Playlisty</h2>
+          </div>
+        </div>
+
+        <button class="wide" onclick="loadPlaylists()">Odśwież playlisty</button>
+        <div id="playlistResults" class="result-list">
+          <p class="muted">Kliknij odśwież, żeby pobrać playlisty.</p>
+        </div>
       </div>
     </section>
 
@@ -150,36 +198,17 @@
         </div>
 
         <div class="system-grid">
-          <div class="metric">
-            <small>CPU temp</small>
-            <strong id="cpuTemp">--°C</strong>
-            <div class="bar"><i id="tempBar"></i></div>
-          </div>
-
-          <div class="metric">
-            <small>CPU load</small>
-            <strong id="cpuLoad">--%</strong>
-            <div class="bar"><i id="cpuBar"></i></div>
-          </div>
-
-          <div class="metric">
-            <small>RAM</small>
-            <strong id="ram">--%</strong>
-            <div class="bar"><i id="ramBar"></i></div>
-          </div>
-
-          <div class="metric">
-            <small>Uptime</small>
-            <strong id="uptime">--</strong>
-            <p class="muted">czas pracy</p>
-          </div>
+          <div class="metric"><small>CPU temp</small><strong id="cpuTemp">--°C</strong><div class="bar"><i id="tempBar"></i></div></div>
+          <div class="metric"><small>CPU load</small><strong id="cpuLoad">--%</strong><div class="bar"><i id="cpuBar"></i></div></div>
+          <div class="metric"><small>RAM</small><strong id="ram">--%</strong><div class="bar"><i id="ramBar"></i></div></div>
+          <div class="metric"><small>Uptime</small><strong id="uptime">--</strong><p class="muted">czas pracy</p></div>
         </div>
       </div>
     </section>
 
     <footer class="bottom glass">
       <div>
-        <strong>MD Smart Hub OS v2.2</strong>
+        <strong>MD Smart Hub OS v2.3</strong>
         <span id="toast">System gotowy</span>
       </div>
       <button onclick="location.reload()">Odśwież</button>

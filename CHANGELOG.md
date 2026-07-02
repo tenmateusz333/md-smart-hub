@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.3
+- Dodana wyszukiwarka utworów Spotify.
+- Dodany ekran playlist Spotify.
+- Dodane odtwarzanie utworu z wyszukiwarki.
+- Dodane odtwarzanie playlisty.
+- Dodany suwak głośności.
+- Dodana animacja okładki podczas odtwarzania.
+- Powiększone przyciski sterowania muzyką.
+
 ## v2.2
 - Dodana integracja Spotify API.
 - Dodane logowanie Spotify przez PKCE.
@@ -10,15 +19,6 @@
 
 ## v2.1
 - Przebudowany dashboard premium.
-- Nowy układ główny pod ekran 7 cali.
-- Lepszy kafelek Spotify.
-- Lepszy pasek statusu.
-- Większe karty pogody i systemu.
-- Poprawiona typografia i efekt szkła.
 
 ## v2.0
 - Nowa struktura projektu.
-- Oddzielony frontend i backend.
-- Dodany lokalny backend Python.
-- Dodana pogoda online.
-- Dodany ekran systemowy Raspberry.
