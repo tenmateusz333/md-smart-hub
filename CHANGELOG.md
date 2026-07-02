@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.2
+- Dodana integracja Spotify API.
+- Dodane logowanie Spotify przez PKCE.
+- Dodany podgląd aktualnego utworu.
+- Dodana okładka albumu.
+- Dodane Play/Pause, Next, Previous.
+- Dodany zapis tokenów w `data/`.
+
 ## v2.1
 - Przebudowany dashboard premium.
 - Nowy układ główny pod ekran 7 cali.

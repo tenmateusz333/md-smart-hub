@@ -10,7 +10,7 @@
   <div id="boot">
     <div class="boot-mark">MD</div>
     <div class="boot-name">SMART HUB OS</div>
-    <div class="boot-version">v2.1</div>
+    <div class="boot-version">v2.2</div>
   </div>
 
   <main class="app">
@@ -22,7 +22,7 @@
 
       <div class="status-strip">
         <span id="wifi">Wi‑Fi</span>
-        <span id="bt">Bluetooth</span>
+        <span id="spotifyStatus">Spotify</span>
         <span id="topTemp">CPU --°C</span>
         <span class="user-dot">MD</span>
       </div>
@@ -34,7 +34,7 @@
           <div>
             <p class="eyebrow">Dashboard</p>
             <h1>MD Smart Hub</h1>
-            <p class="muted">Twój panel sterowania pokojem, muzyką i smart home.</p>
+            <p class="muted">Panel sterowania pokojem, muzyką i smart home.</p>
           </div>
 
           <div class="hero-side">
@@ -48,10 +48,10 @@
             <span class="spotify-logo">●</span>
             <strong>Spotify</strong>
           </div>
-          <div class="cover">🎧</div>
+          <div class="cover" id="homeCover">🎧</div>
           <div>
-            <h3>Web Player</h3>
-            <p class="muted">Dotknij, żeby otworzyć odtwarzacz.</p>
+            <h3 id="homeTrack">Web Player</h3>
+            <p id="homeArtist" class="muted">Dotknij, żeby otworzyć odtwarzacz.</p>
           </div>
         </section>
 
@@ -93,19 +93,24 @@
           </div>
         </div>
 
-        <div class="album premium">🎧</div>
-        <h3>Spotify Web Player</h3>
-        <p class="muted center">v2.2 podłączymy Spotify API: okładki, tytuł, play/pause.</p>
+        <div class="album premium" id="spotifyCover">🎧</div>
+        <h3 id="spotifyTitle">Spotify</h3>
+        <p id="spotifyArtist" class="muted center">Połącz konto Spotify.</p>
 
-        <div class="progress"><i></i></div>
+        <div class="progress"><i id="spotifyProgress"></i></div>
 
-        <div class="controls">
-          <button>⏮</button>
-          <button class="play">▶</button>
-          <button>⏭</button>
+        <div class="time-row">
+          <span id="spotifyElapsed">0:00</span>
+          <span id="spotifyDuration">0:00</span>
         </div>
 
-        <button class="wide" onclick="openSpotify()">Otwórz Spotify</button>
+        <div class="controls">
+          <button onclick="spotifyControl('previous')">⏮</button>
+          <button id="spotifyPlay" class="play" onclick="spotifyControl('playpause')">▶</button>
+          <button onclick="spotifyControl('next')">⏭</button>
+        </div>
+
+        <button id="spotifyLoginBtn" class="wide" onclick="connectSpotify()">Połącz Spotify</button>
       </div>
     </section>
 
@@ -174,7 +179,7 @@
 
     <footer class="bottom glass">
       <div>
-        <strong>MD Smart Hub OS v2.1</strong>
+        <strong>MD Smart Hub OS v2.2</strong>
         <span id="toast">System gotowy</span>
       </div>
       <button onclick="location.reload()">Odśwież</button>

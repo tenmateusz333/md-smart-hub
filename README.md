@@ -4,13 +4,17 @@ Własny panel smart home na Raspberry Pi z ekranem dotykowym.
 
 ## Aktualna wersja
 
-v2.1 Premium UI
+v2.2 Spotify Integration
 
-## Struktura
+## Spotify
 
-- `frontend/` – interfejs użytkownika
-- `backend/` – lokalny serwer i API Raspberry
-- `docs/` – dokumentacja
+Redirect URI w Spotify Developer Dashboard:
+
+```text
+http://127.0.0.1:8765/callback
+```
+
+Po uruchomieniu panelu kliknij `Połącz Spotify`.
 
 ## Test lokalny na Raspberry
 
@@ -19,7 +23,7 @@ cd ~/md-smart-hub
 python3 backend/server.py
 ```
 
-Potem otwórz:
+Potem:
 
 ```bash
 chromium --kiosk http://127.0.0.1:8765

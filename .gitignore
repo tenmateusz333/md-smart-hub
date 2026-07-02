@@ -4,3 +4,5 @@ __pycache__/
 Thumbs.db
 /tmp/
 *.log
+data/spotify_tokens.json
+data/spotify_session.json

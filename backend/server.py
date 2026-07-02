@@ -1,15 +1,163 @@
 #!/usr/bin/env python3
+import base64
+import hashlib
 import json
 import os
+import secrets
 import subprocess
 import time
+import urllib.parse
+import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_ROOT = PROJECT_ROOT / "frontend"
+DATA_ROOT = PROJECT_ROOT / "data"
+DATA_ROOT.mkdir(exist_ok=True)
+
+CLIENT_ID = "7671855d0ad548d2bbdb2c49c386fa2b"
+REDIRECT_URI = "http://127.0.0.1:8765/callback"
+SCOPES = "user-read-playback-state user-read-currently-playing user-modify-playback-state"
+
+TOKENS_FILE = DATA_ROOT / "spotify_tokens.json"
+SESSION_FILE = DATA_ROOT / "spotify_session.json"
+
 BOOT_TIME = time.time()
 _last_cpu = None
+
+def read_json(path, default):
+    try:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return default
+
+def write_json(path, data):
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+def b64url(data):
+    return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+def create_pkce_pair():
+    verifier = b64url(secrets.token_bytes(64))
+    challenge = b64url(hashlib.sha256(verifier.encode("utf-8")).digest())
+    return verifier, challenge
+
+def http_json(url, method="GET", headers=None, data=None):
+    headers = headers or {}
+    body = None
+    if data is not None:
+        if isinstance(data, dict):
+            body = urllib.parse.urlencode(data).encode("utf-8")
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        else:
+            body = json.dumps(data).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=10) as res:
+        raw = res.read()
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
+
+def spotify_exchange_code(code, verifier):
+    return http_json(
+        "https://accounts.spotify.com/api/token",
+        method="POST",
+        data={
+            "client_id": CLIENT_ID,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": verifier,
+        },
+    )
+
+def spotify_refresh(tokens):
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        return None
+
+    new_tokens = http_json(
+        "https://accounts.spotify.com/api/token",
+        method="POST",
+        data={
+            "client_id": CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+
+    if "refresh_token" not in new_tokens:
+        new_tokens["refresh_token"] = refresh_token
+
+    new_tokens["expires_at"] = time.time() + int(new_tokens.get("expires_in", 3600)) - 60
+    write_json(TOKENS_FILE, new_tokens)
+    return new_tokens
+
+def spotify_tokens():
+    tokens = read_json(TOKENS_FILE, None)
+    if not tokens:
+        return None
+
+    if time.time() > tokens.get("expires_at", 0):
+        try:
+            return spotify_refresh(tokens)
+        except Exception:
+            return None
+
+    return tokens
+
+def spotify_api(path, method="GET", payload=None):
+    tokens = spotify_tokens()
+    if not tokens:
+        return None, 401
+
+    headers = {
+        "Authorization": f"Bearer {tokens['access_token']}"
+    }
+
+    url = f"https://api.spotify.com/v1{path}"
+
+    try:
+        data = http_json(url, method=method, headers=headers, data=payload)
+        return data, 200
+    except urllib.error.HTTPError as e:
+        if e.code == 204:
+            return {}, 204
+        return {"error": str(e)}, e.code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+def spotify_status():
+    tokens = spotify_tokens()
+    if not tokens:
+        return {"connected": False}
+
+    data, code = spotify_api("/me/player", "GET")
+
+    if code == 204 or not data:
+        return {"connected": True, "playing_track": False}
+
+    item = data.get("item") or {}
+    album = item.get("album") or {}
+    images = album.get("images") or []
+    artists = item.get("artists") or []
+
+    return {
+        "connected": True,
+        "playing_track": bool(item),
+        "is_playing": data.get("is_playing", False),
+        "track_name": item.get("name", "Brak tytułu"),
+        "artist_name": ", ".join(a.get("name", "") for a in artists).strip() or "Nieznany wykonawca",
+        "album_name": album.get("name", ""),
+        "album_image": images[0]["url"] if images else None,
+        "progress_ms": data.get("progress_ms", 0),
+        "duration_ms": item.get("duration_ms", 0),
+    }
 
 def run_cmd(cmd):
     try:
@@ -67,26 +215,100 @@ def is_online():
     return os.system("ping -c 1 -W 1 1.1.1.1 > /dev/null 2>&1") == 0
 
 class Handler(SimpleHTTPRequestHandler):
+    def json_response(self, data, status=200):
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def redirect(self, url):
+        self.send_response(302)
+        self.send_header("Location", url)
+        self.end_headers()
+
     def do_GET(self):
         if self.path == "/api/system":
-            data = {
+            return self.json_response({
                 "cpu_temp": cpu_temp(),
                 "cpu_percent": cpu_percent(),
                 "ram_percent": ram_percent(),
                 "uptime_seconds": int(time.time() - BOOT_TIME),
                 "online": is_online()
+            })
+
+        if self.path == "/api/spotify/status":
+            return self.json_response(spotify_status())
+
+        if self.path == "/spotify/login":
+            verifier, challenge = create_pkce_pair()
+            state = secrets.token_urlsafe(24)
+
+            write_json(SESSION_FILE, {
+                "code_verifier": verifier,
+                "state": state
+            })
+
+            params = {
+                "client_id": CLIENT_ID,
+                "response_type": "code",
+                "redirect_uri": REDIRECT_URI,
+                "code_challenge_method": "S256",
+                "code_challenge": challenge,
+                "state": state,
+                "scope": SCOPES
             }
 
-            body = json.dumps(data).encode("utf-8")
+            url = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(params)
+            return self.redirect(url)
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+        if self.path.startswith("/callback"):
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+
+            code = params.get("code", [None])[0]
+            state = params.get("state", [None])[0]
+
+            session = read_json(SESSION_FILE, {})
+            if not code or state != session.get("state"):
+                return self.json_response({"error": "Invalid Spotify callback"}, 400)
+
+            try:
+                tokens = spotify_exchange_code(code, session["code_verifier"])
+                tokens["expires_at"] = time.time() + int(tokens.get("expires_in", 3600)) - 60
+                write_json(TOKENS_FILE, tokens)
+                return self.redirect("/")
+            except Exception as e:
+                return self.json_response({"error": str(e)}, 500)
 
         return super().do_GET()
+
+    def do_POST(self):
+        if self.path.startswith("/api/spotify/control/"):
+            action = self.path.split("/")[-1]
+
+            if action == "next":
+                _, code = spotify_api("/me/player/next", method="POST")
+                return self.json_response({"ok": code in (200, 204)}, code if code != 204 else 200)
+
+            if action == "previous":
+                _, code = spotify_api("/me/player/previous", method="POST")
+                return self.json_response({"ok": code in (200, 204)}, code if code != 204 else 200)
+
+            if action == "playpause":
+                status = spotify_status()
+                if not status.get("connected"):
+                    return self.json_response({"ok": False, "error": "not_connected"}, 401)
+
+                if status.get("is_playing"):
+                    _, code = spotify_api("/me/player/pause", method="PUT")
+                else:
+                    _, code = spotify_api("/me/player/play", method="PUT")
+
+                return self.json_response({"ok": code in (200, 204)}, code if code != 204 else 200)
+
+        return self.json_response({"error": "Not found"}, 404)
 
 if __name__ == "__main__":
     os.chdir(FRONTEND_ROOT)
