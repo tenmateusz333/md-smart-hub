@@ -2,42 +2,21 @@
 
 ## Aktualna wersja
 
-v2.4 Spotify Complete
+v2.4.1 Spotify UI Fix
 
-## Ważne po aktualizacji
+## Co poprawiono
 
-Po wgraniu v2.4 kliknij w panelu:
+- skalowanie 1024x600
+- ekran Spotify
+- playlisty i wyszukiwarka
+- przewijane listy
+- własna klawiatura ekranowa
 
-```text
-Reset Spotify
-```
-
-Potem:
-
-```text
-Połącz Spotify / Autoryzuj
-```
-
-Spotify musi pokazać ekran zgody z nowymi uprawnieniami.
-
-## Spotify Redirect URI
-
-W Spotify Developer Dashboard musi być:
-
-```text
-http://127.0.0.1:8765/callback
-```
-
-## Test na Raspberry
+## Po aktualizacji
 
 ```bash
 cd ~/md-smart-hub
+git pull
 pkill -f server.py
 python3 backend/server.py
-```
-
-Potem:
-
-```bash
-chromium --kiosk http://127.0.0.1:8765
 ```

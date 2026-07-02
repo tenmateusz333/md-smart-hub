@@ -109,18 +109,16 @@ def spotify_api(path, method="GET", payload=None):
 
 def friendly_spotify_error(code, data):
     if code == 401:
-        return "Spotify wymaga ponownego połączenia. Kliknij Reset Spotify, potem Połącz Spotify."
+        return "Spotify wymaga ponownego połączenia. Kliknij Reset, potem Autoryzuj."
     if code == 403:
-        return "Spotify odmówił dostępu. Połącz Spotify ponownie i zaakceptuj nowe uprawnienia."
+        return "Spotify odmówił dostępu. Zrób Reset i zaakceptuj nowe uprawnienia."
     if code == 404:
-        return "Brak aktywnego urządzenia Spotify. Włącz muzykę na telefonie lub komputerze."
-    if code == 429:
-        return "Spotify chwilowo ograniczył zapytania. Spróbuj za moment."
+        return "Brak aktywnego urządzenia Spotify. Włącz Spotify na telefonie/PC."
     if isinstance(data, dict):
-        msg = data.get("error", {})
-        if isinstance(msg, dict):
-            return msg.get("message") or str(msg)
-        return str(msg)
+        err = data.get("error", {})
+        if isinstance(err, dict):
+            return err.get("message", str(err))
+        return str(err)
     return "Nieznany błąd Spotify."
 
 def spotify_status():
@@ -143,7 +141,6 @@ def spotify_status():
         "is_playing": data.get("is_playing", False),
         "track_name": item.get("name", "Brak tytułu"),
         "artist_name": ", ".join(a.get("name", "") for a in artists).strip() or "Nieznany wykonawca",
-        "album_name": album.get("name", ""),
         "album_image": images[0]["url"] if images else None,
         "progress_ms": data.get("progress_ms", 0),
         "duration_ms": item.get("duration_ms", 0),
@@ -227,10 +224,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "uptime_seconds": int(time.time() - BOOT_TIME),
                 "online": is_online()
             })
-
         if self.path == "/api/spotify/status":
             return self.json_response(spotify_status())
-
         if self.path.startswith("/api/spotify/search"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("q", [""])[0]
             if not q.strip():
@@ -243,14 +238,8 @@ class Handler(SimpleHTTPRequestHandler):
                 album = t.get("album") or {}
                 images = album.get("images") or []
                 artists = t.get("artists") or []
-                items.append({
-                    "name": t.get("name"),
-                    "subtitle": ", ".join(a.get("name","") for a in artists),
-                    "uri": t.get("uri"),
-                    "image": images[0]["url"] if images else None
-                })
+                items.append({"name": t.get("name"), "subtitle": ", ".join(a.get("name","") for a in artists), "uri": t.get("uri"), "image": images[0]["url"] if images else None})
             return self.json_response({"items": items})
-
         if self.path == "/api/spotify/playlists":
             data, code = spotify_api("/me/playlists?limit=30")
             if code != 200:
@@ -258,44 +247,22 @@ class Handler(SimpleHTTPRequestHandler):
             items = []
             for p in (data or {}).get("items", []):
                 images = p.get("images") or []
-                items.append({
-                    "name": p.get("name"),
-                    "subtitle": f"{p.get('tracks',{}).get('total',0)} utworów",
-                    "uri": p.get("uri"),
-                    "image": images[0]["url"] if images else None
-                })
+                items.append({"name": p.get("name"), "subtitle": f"{p.get('tracks',{}).get('total',0)} utworów", "uri": p.get("uri"), "image": images[0]["url"] if images else None})
             return self.json_response({"items": items})
-
         if self.path == "/api/spotify/devices":
             data, code = spotify_api("/me/player/devices")
             if code != 200:
                 return self.json_response({"items": [], "error": friendly_spotify_error(code, data)})
             items = []
             for d in (data or {}).get("devices", []):
-                items.append({
-                    "id": d.get("id"),
-                    "name": d.get("name") + (" ✓" if d.get("is_active") else ""),
-                    "subtitle": f"{d.get('type','device')} • {d.get('volume_percent','--')}%",
-                    "image": None
-                })
+                items.append({"id": d.get("id"), "name": d.get("name") + (" ✓" if d.get("is_active") else ""), "subtitle": f"{d.get('type','device')} • {d.get('volume_percent','--')}%", "image": None})
             return self.json_response({"items": items})
-
         if self.path == "/spotify/login":
             verifier, challenge = create_pkce_pair()
             state = secrets.token_urlsafe(24)
             write_json(SESSION_FILE, {"code_verifier": verifier, "state": state})
-            params = {
-                "client_id": CLIENT_ID,
-                "response_type": "code",
-                "redirect_uri": REDIRECT_URI,
-                "code_challenge_method": "S256",
-                "code_challenge": challenge,
-                "state": state,
-                "scope": SCOPES,
-                "show_dialog": "true"
-            }
+            params = {"client_id": CLIENT_ID, "response_type": "code", "redirect_uri": REDIRECT_URI, "code_challenge_method": "S256", "code_challenge": challenge, "state": state, "scope": SCOPES, "show_dialog": "true"}
             return self.redirect("https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(params))
-
         if self.path.startswith("/callback"):
             params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             code = params.get("code", [None])[0]
@@ -310,60 +277,41 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.redirect("/")
             except Exception as e:
                 return self.json_response({"error": str(e)}, 500)
-
         return super().do_GET()
 
     def do_POST(self):
         if self.path == "/api/spotify/logout":
-            if TOKENS_FILE.exists():
-                TOKENS_FILE.unlink()
-            if SESSION_FILE.exists():
-                SESSION_FILE.unlink()
+            if TOKENS_FILE.exists(): TOKENS_FILE.unlink()
+            if SESSION_FILE.exists(): SESSION_FILE.unlink()
             return self.json_response({"ok": True})
-
         if self.path.startswith("/api/spotify/control/"):
             action = self.path.split("/")[-1]
-            if action == "next":
-                data, code = spotify_api("/me/player/next", method="POST")
-                return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-            if action == "previous":
-                data, code = spotify_api("/me/player/previous", method="POST")
-                return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-            if action == "playpause":
+            if action == "next": data, code = spotify_api("/me/player/next", method="POST")
+            elif action == "previous": data, code = spotify_api("/me/player/previous", method="POST")
+            elif action == "playpause":
                 status = spotify_status()
-                if not status.get("connected"):
-                    return self.json_response({"ok": False, "error": "Spotify niepołączony"})
-                if status.get("is_playing"):
-                    data, code = spotify_api("/me/player/pause", method="PUT")
-                else:
-                    data, code = spotify_api("/me/player/play", method="PUT")
-                return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-
+                if not status.get("connected"): return self.json_response({"ok": False, "error": "Spotify niepołączony"})
+                if status.get("is_playing"): data, code = spotify_api("/me/player/pause", method="PUT")
+                else: data, code = spotify_api("/me/player/play", method="PUT")
+            else: return self.json_response({"ok": False})
+            return self.json_response({"ok": code in (200,204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
         if self.path.startswith("/api/spotify/volume"):
-            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            value = int(params.get("value", [50])[0])
+            value = int(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("value", [50])[0])
             value = max(0, min(100, value))
             data, code = spotify_api(f"/me/player/volume?volume_percent={value}", method="PUT")
-            return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-
+            return self.json_response({"ok": code in (200,204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
         if self.path == "/api/spotify/play-track":
-            body = self.read_body_json()
-            uri = body.get("uri")
+            uri = self.read_body_json().get("uri")
             data, code = spotify_api("/me/player/play", method="PUT", payload={"uris": [uri]})
-            return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-
+            return self.json_response({"ok": code in (200,204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
         if self.path == "/api/spotify/play-context":
-            body = self.read_body_json()
-            uri = body.get("uri")
+            uri = self.read_body_json().get("uri")
             data, code = spotify_api("/me/player/play", method="PUT", payload={"context_uri": uri})
-            return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-
+            return self.json_response({"ok": code in (200,204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
         if self.path == "/api/spotify/transfer":
-            body = self.read_body_json()
-            device_id = body.get("id")
+            device_id = self.read_body_json().get("id")
             data, code = spotify_api("/me/player", method="PUT", payload={"device_ids": [device_id], "play": False})
-            return self.json_response({"ok": code in (200, 204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
-
+            return self.json_response({"ok": code in (200,204), "error": None if code in (200,204) else friendly_spotify_error(code, data)})
         return self.json_response({"error": "Not found"}, 404)
 
 if __name__ == "__main__":
