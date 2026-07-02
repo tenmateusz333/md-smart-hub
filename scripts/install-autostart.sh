@@ -16,4 +16,3 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 echo "Autostart aplikacji dodany."
-echo "Po restarcie Raspberry aplikacja powinna uruchomić się sama."

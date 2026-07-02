@@ -1,43 +1,53 @@
-# MD Smart Hub OS v4.0 Alpha App Edition
+# MD Smart Hub OS v4.1 Spotify Native
 
-To jest pierwsza wersja aplikacji pełnoekranowej, bez Chromium i bez serwera strony internetowej.
+To jest wersja aplikacyjna z pierwszym natywnym modułem Spotify.
 
 ## Co zawiera
 
-- natywna aplikacja Python/Tkinter,
-- pełny ekran 1024x600,
+- aplikacja pełnoekranowa bez Chromium jako głównego interfejsu,
 - dashboard,
-- zegar,
 - pogoda,
-- CPU/RAM/temp,
-- ekran ustawień,
-- przygotowanie pod Spotify Native w v4.1.
+- system CPU/RAM/temp,
+- Spotify logowanie PKCE,
+- Spotify teraz gra,
+- play/pauza,
+- następny/poprzedni,
+- wyszukiwarka Spotify,
+- własna klawiatura ekranowa w aplikacji,
+- ekran Spotify Debug.
 
 ## Uruchomienie na Raspberry
 
-Po wrzuceniu paczki do repozytorium i `git pull`:
-
 ```bash
 cd ~/md-smart-hub
+git pull
 chmod +x scripts/*.sh
 ./scripts/install.sh
 ./scripts/start-app.sh
 ```
 
-## Wyjście z pełnego ekranu
+## Logowanie Spotify
 
-- `ESC` wyłącza pełny ekran,
-- `F11` przełącza pełny ekran,
-- w ustawieniach jest przycisk zamykania aplikacji.
-
-## Autostart
-
-Po przetestowaniu możesz włączyć autostart:
-
-```bash
-./scripts/install-autostart.sh
-```
+1. Otwórz aplikację.
+2. Kliknij `Spotify`.
+3. Kliknij `Autoryzuj`.
+4. Otworzy się przeglądarka tylko do logowania.
+5. Zaloguj się.
+6. Po komunikacie `Spotify połączone` wróć do aplikacji.
 
 ## Ważne
 
-To jest wersja Alpha. Spotify jeszcze nie jest przeniesione. Wróci w v4.1 jako natywny moduł aplikacji.
+W Spotify Developer Dashboard musi być ustawiony Redirect URI:
+
+```text
+http://127.0.0.1:8765/callback
+```
+
+## Kolejny etap
+
+v4.2:
+- playlisty,
+- urządzenia Spotify,
+- głośność,
+- przewijanie utworu,
+- lepszy ekran odtwarzacza.

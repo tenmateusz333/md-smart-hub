@@ -1,18 +1,40 @@
 #!/usr/bin/env python3
+import base64
+import hashlib
 import json
 import os
+import secrets
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tkinter as tk
 from tkinter import font as tkfont
 
-APP_VERSION = "v4.0 Alpha App Edition"
+APP_VERSION = "v4.1 Spotify Native"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
 CONFIG_PATH = DATA_ROOT / "config.json"
+TOKENS_PATH = DATA_ROOT / "spotify_tokens.json"
+SESSION_PATH = DATA_ROOT / "spotify_session.json"
+
+CLIENT_ID = "7671855d0ad548d2bbdb2c49c386fa2b"
+REDIRECT_URI = "http://127.0.0.1:8765/callback"
+SCOPES = (
+    "user-read-private "
+    "user-read-playback-state "
+    "user-read-currently-playing "
+    "user-modify-playback-state "
+    "playlist-read-private "
+    "playlist-read-collaborative "
+    "user-read-recently-played "
+    "user-library-read"
+)
 
 DEFAULT_CONFIG = {
     "city": "Warszawa",
@@ -41,6 +63,260 @@ def load_config():
 
 
 CONFIG = load_config()
+
+
+def read_json(path, default):
+    try:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return default
+
+
+def write_json(path, data):
+    DATA_ROOT.mkdir(exist_ok=True)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def b64url(data):
+    return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+
+
+def create_pkce_pair():
+    verifier = b64url(secrets.token_bytes(64))
+    challenge = b64url(hashlib.sha256(verifier.encode("utf-8")).digest())
+    return verifier, challenge
+
+
+def http_json(url, method="GET", headers=None, form=None, json_data=None):
+    headers = headers or {}
+    body = None
+
+    if form is not None:
+        body = urllib.parse.urlencode(form).encode("utf-8")
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    if json_data is not None:
+        body = json.dumps(json_data).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+
+    with urllib.request.urlopen(req, timeout=14) as res:
+        raw = res.read()
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
+
+
+def spotify_exchange_code(code, verifier):
+    return http_json(
+        "https://accounts.spotify.com/api/token",
+        method="POST",
+        form={
+            "client_id": CLIENT_ID,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": verifier,
+        },
+    )
+
+
+def spotify_refresh(tokens):
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        return None
+
+    new_tokens = http_json(
+        "https://accounts.spotify.com/api/token",
+        method="POST",
+        form={
+            "client_id": CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+
+    if "refresh_token" not in new_tokens:
+        new_tokens["refresh_token"] = refresh_token
+
+    new_tokens["expires_at"] = time.time() + int(new_tokens.get("expires_in", 3600)) - 60
+    write_json(TOKENS_PATH, new_tokens)
+    return new_tokens
+
+
+def spotify_tokens():
+    tokens = read_json(TOKENS_PATH, None)
+
+    if not tokens:
+        return None
+
+    if time.time() > tokens.get("expires_at", 0):
+        try:
+            return spotify_refresh(tokens)
+        except Exception:
+            return None
+
+    return tokens
+
+
+def spotify_api(path, method="GET", payload=None):
+    tokens = spotify_tokens()
+
+    if not tokens:
+        return None, 401
+
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    url = f"https://api.spotify.com/v1{path}"
+
+    try:
+        data = http_json(url, method=method, headers=headers, json_data=payload)
+        return data, 200
+    except urllib.error.HTTPError as e:
+        if e.code == 204:
+            return {}, 204
+
+        try:
+            raw = e.read().decode("utf-8")
+            return json.loads(raw) if raw else {}, e.code
+        except Exception:
+            return {"error": str(e)}, e.code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+def friendly_spotify_error(code, data):
+    if code == 401:
+        return "Spotify wymaga ponownego logowania."
+    if code == 403:
+        return "Spotify odmówił dostępu. Zrób Reset i Autoryzuj."
+    if code == 404:
+        return "Brak aktywnego urządzenia Spotify. Włącz Spotify na telefonie lub komputerze."
+    if code == 429:
+        return "Spotify ograniczył zapytania. Spróbuj za chwilę."
+
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            return error.get("message", str(error))
+        if isinstance(error, str):
+            return error
+
+    return f"Błąd Spotify {code}"
+
+
+def spotify_status():
+    tokens = spotify_tokens()
+
+    if not tokens:
+        return {
+            "connected": False,
+            "playing_track": False,
+            "message": "Nie połączono Spotify."
+        }
+
+    data, code = spotify_api("/me/player", "GET")
+
+    if code == 204 or not data:
+        return {
+            "connected": True,
+            "playing_track": False,
+            "message": "Brak aktywnego urządzenia. Włącz muzykę w Spotify."
+        }
+
+    if code != 200:
+        return {
+            "connected": True,
+            "playing_track": False,
+            "message": friendly_spotify_error(code, data)
+        }
+
+    item = data.get("item") or {}
+    album = item.get("album") or {}
+    artists = item.get("artists") or []
+    device = data.get("device") or {}
+
+    return {
+        "connected": True,
+        "playing_track": bool(item),
+        "is_playing": data.get("is_playing", False),
+        "track_name": item.get("name", "Brak tytułu"),
+        "artist_name": ", ".join(a.get("name", "") for a in artists).strip() or "Nieznany wykonawca",
+        "progress_ms": data.get("progress_ms", 0),
+        "duration_ms": item.get("duration_ms", 0),
+        "volume_percent": device.get("volume_percent"),
+        "device_name": device.get("name", "Brak urządzenia"),
+        "message": ""
+    }
+
+
+class SpotifyCallbackHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        return
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+
+        if parsed.path != "/callback":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        params = urllib.parse.parse_qs(parsed.query)
+        code = params.get("code", [None])[0]
+        state = params.get("state", [None])[0]
+        session = read_json(SESSION_PATH, {})
+
+        html_ok = """
+        <html><body style="font-family:Arial;background:#05070d;color:white;text-align:center;padding-top:80px">
+        <h1>Spotify połączone</h1>
+        <p>Możesz wrócić do MD Smart Hub.</p>
+        </body></html>
+        """
+
+        html_error = """
+        <html><body style="font-family:Arial;background:#05070d;color:white;text-align:center;padding-top:80px">
+        <h1>Błąd Spotify</h1>
+        <p>Wróć do MD Smart Hub i spróbuj ponownie.</p>
+        </body></html>
+        """
+
+        try:
+            if not code or state != session.get("state"):
+                raise RuntimeError("Nieprawidłowy callback Spotify")
+
+            tokens = spotify_exchange_code(code, session["code_verifier"])
+            tokens["expires_at"] = time.time() + int(tokens.get("expires_in", 3600)) - 60
+            write_json(TOKENS_PATH, tokens)
+
+            body = html_ok.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            body = html_error.encode("utf-8")
+            self.send_response(400)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+
+_callback_server = None
+
+
+def ensure_callback_server():
+    global _callback_server
+
+    if _callback_server is not None:
+        return
+
+    _callback_server = ThreadingHTTPServer(("127.0.0.1", 8765), SpotifyCallbackHandler)
+    threading.Thread(target=_callback_server.serve_forever, daemon=True).start()
 
 
 def run_cmd(cmd):
@@ -191,6 +467,18 @@ def fetch_weather():
     }
 
 
+def fmt_ms(ms):
+    try:
+        ms = int(ms or 0)
+    except Exception:
+        ms = 0
+
+    total = max(0, ms // 1000)
+    minutes = total // 60
+    seconds = total % 60
+    return f"{minutes}:{seconds:02d}"
+
+
 class SmartHubApp:
     def __init__(self, root):
         self.root = root
@@ -201,6 +489,10 @@ class SmartHubApp:
             "text": "Ładowanie...",
             "wind": "--"
         }
+
+        self.spotify_last = spotify_status()
+        self.search_query = ""
+        self.search_results = []
 
         self.colors = {
             "bg": "#05070d",
@@ -227,12 +519,14 @@ class SmartHubApp:
         self.font_h2 = tkfont.Font(family="Arial", size=20, weight="bold")
         self.font_body = tkfont.Font(family="Arial", size=14)
         self.font_small = tkfont.Font(family="Arial", size=11)
-        self.font_tile_icon = tkfont.Font(family="Arial", size=36, weight="bold")
+        self.font_tiny = tkfont.Font(family="Arial", size=9)
+        self.font_tile_icon = tkfont.Font(family="Arial", size=34, weight="bold")
 
         self.build_layout()
         self.show_home()
         self.tick_clock()
         self.tick_system()
+        self.tick_spotify()
         self.start_weather_loop()
 
     def toggle_fullscreen(self):
@@ -271,7 +565,7 @@ class SmartHubApp:
 
         self.status_label = tk.Label(
             self.topbar,
-            text="Wi‑Fi • CPU --°C • MD",
+            text="Wi‑Fi • Spotify • CPU --°C • MD",
             font=self.font_small,
             bg=self.colors["panel"],
             fg=self.colors["text"],
@@ -310,7 +604,8 @@ class SmartHubApp:
     def build_nav(self):
         buttons = [
             ("⌂", "home", self.show_home),
-            ("♫", "spotify", self.show_spotify_placeholder),
+            ("♫", "spotify", self.show_spotify),
+            ("⌕", "search", self.show_spotify_search),
             ("☁", "weather", self.show_weather),
             ("▣", "system", self.show_system),
             ("⚙", "settings", self.show_settings),
@@ -328,7 +623,7 @@ class SmartHubApp:
                 relief="flat",
                 command=command
             )
-            btn.pack(fill="both", expand=True, padx=8, pady=6)
+            btn.pack(fill="both", expand=True, padx=8, pady=5)
             btn.name = name
 
     def clear_content(self):
@@ -343,6 +638,20 @@ class SmartHubApp:
         frame = tk.Frame(parent, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
         frame.grid(**grid)
         return frame
+
+    def button(self, parent, text, command, bg=None, fg=None, **pack):
+        btn = tk.Button(
+            parent,
+            text=text,
+            font=self.font_body,
+            bg=bg or self.colors["green"],
+            fg=fg or "#041107",
+            activebackground=self.colors["blue"],
+            relief="flat",
+            command=command
+        )
+        btn.pack(**pack)
+        return btn
 
     def show_home(self):
         self.screen = "home"
@@ -360,22 +669,14 @@ class SmartHubApp:
         tk.Label(hero, text="MD Smart Hub", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", padx=18, pady=(12, 0))
         tk.Label(
             hero,
-            text="Nowa wersja App Edition działa bez Chromium.\nTo jest baza pod Spotify, Bluetooth i Smart Home.",
+            text="App Edition działa bez Chromium.\nSpotify wrócił jako moduł aplikacji.",
             font=self.font_body,
             bg=self.colors["panel"],
             fg=self.colors["muted"],
             justify="left"
         ).pack(anchor="w", padx=18, pady=10)
 
-        tk.Button(
-            hero,
-            text="Otwórz Spotify",
-            font=self.font_body,
-            bg=self.colors["green"],
-            fg="#041107",
-            relief="flat",
-            command=self.show_spotify_placeholder
-        ).pack(anchor="w", padx=18, pady=12, ipadx=18, ipady=8)
+        self.button(hero, "Otwórz Spotify", self.show_spotify, anchor="w", padx=18, pady=12, ipadx=18, ipady=8)
 
         weather = self.card(grid, row=0, column=1, sticky="nsew", pady=(0, 8))
         tk.Label(weather, text=self.weather_data["icon"], font=tkfont.Font(family="Arial", size=70, weight="bold"), bg=self.colors["panel"], fg=self.colors["blue"]).pack(pady=(20, 0))
@@ -385,10 +686,16 @@ class SmartHubApp:
 
         spotify = self.card(grid, row=1, column=0, sticky="nsew", padx=(0, 8))
         tk.Label(spotify, text="♫", font=self.font_tile_icon, bg=self.colors["panel"], fg=self.colors["green"]).pack(side="left", padx=18)
+
         txt = tk.Frame(spotify, bg=self.colors["panel"])
         txt.pack(side="left", fill="both", expand=True, pady=18)
-        tk.Label(txt, text="Spotify", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
-        tk.Label(txt, text="Moduł Spotify wraca w v4.1 jako natywna część aplikacji.", font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w")
+
+        sp = self.spotify_last
+        track = sp.get("track_name") if sp.get("playing_track") else "Spotify"
+        artist = sp.get("artist_name") if sp.get("playing_track") else sp.get("message", "Połącz Spotify w aplikacji.")
+
+        tk.Label(txt, text=track, font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
+        tk.Label(txt, text=artist, font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w")
 
         system = self.card(grid, row=1, column=1, sticky="nsew")
         temp = cpu_temp()
@@ -398,44 +705,364 @@ class SmartHubApp:
 
         self.toast("Dashboard")
 
-    def show_spotify_placeholder(self):
+    def show_spotify(self):
         self.screen = "spotify"
         self.clear_content()
 
         page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
         page.pack(fill="both", expand=True)
 
-        tk.Label(page, text="Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", padx=24, pady=(24, 0))
-        tk.Label(page, text="Moduł Spotify", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", padx=24, pady=(10, 0))
+        top = tk.Frame(page, bg=self.colors["panel"])
+        top.pack(fill="x", padx=22, pady=(20, 10))
+
+        left = tk.Frame(top, bg=self.colors["panel"])
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(left, text="Spotify Native", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text="Odtwarzacz", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", pady=(5, 0))
+
+        actions = tk.Frame(top, bg=self.colors["panel"])
+        actions.pack(side="right")
+
+        self.button(actions, "Autoryzuj", self.spotify_login, side="left", padx=4, ipadx=8, ipady=6)
+        self.button(actions, "Reset", self.spotify_logout, side="left", padx=4, ipadx=8, ipady=6, bg=self.colors["red"], fg="white")
+        self.button(actions, "Debug", self.show_spotify_debug, side="left", padx=4, ipadx=8, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        body = tk.Frame(page, bg=self.colors["panel"])
+        body.pack(fill="both", expand=True, padx=22, pady=(0, 10))
+
+        album = tk.Frame(body, bg=self.colors["card"], width=210, height=210, highlightthickness=1, highlightbackground="#243244")
+        album.pack(side="left", padx=(0, 18), pady=8)
+        album.pack_propagate(False)
+        tk.Label(album, text="♫", font=tkfont.Font(family="Arial", size=82, weight="bold"), bg=self.colors["card"], fg=self.colors["green"]).pack(expand=True)
+
+        info = tk.Frame(body, bg=self.colors["panel"])
+        info.pack(side="left", fill="both", expand=True)
+
+        sp = spotify_status()
+        self.spotify_last = sp
+
+        if not sp.get("connected"):
+            title = "Spotify niepołączony"
+            artist = "Kliknij Autoryzuj. Po logowaniu wróć do aplikacji."
+        elif not sp.get("playing_track"):
+            title = "Brak aktywnego utworu"
+            artist = sp.get("message", "Włącz Spotify na telefonie lub komputerze.")
+        else:
+            title = sp.get("track_name", "Spotify")
+            artist = sp.get("artist_name", "")
+
+        tk.Label(info, text=title, font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"], wraplength=520, justify="left").pack(anchor="w", pady=(12, 0))
+        tk.Label(info, text=artist, font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"], wraplength=520, justify="left").pack(anchor="w", pady=(8, 0))
+
+        progress_text = f'{fmt_ms(sp.get("progress_ms", 0))} / {fmt_ms(sp.get("duration_ms", 0))}'
+        tk.Label(info, text=progress_text, font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(16, 4))
+
+        bar_bg = tk.Frame(info, bg="#263449", height=12)
+        bar_bg.pack(fill="x", pady=(0, 12))
+        bar_bg.pack_propagate(False)
+
+        duration = sp.get("duration_ms", 0) or 1
+        progress = sp.get("progress_ms", 0) or 0
+        percent = max(1, min(100, int(progress / duration * 100)))
+        bar = tk.Frame(bar_bg, bg=self.colors["green"], width=max(8, int(520 * percent / 100)))
+        bar.pack(side="left", fill="y")
+
+        controls = tk.Frame(info, bg=self.colors["panel"])
+        controls.pack(anchor="w", pady=(8, 0))
+
+        self.button(controls, "⏮", lambda: self.spotify_control("previous"), side="left", padx=4, ipadx=12, ipady=8, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(controls, "⏸" if sp.get("is_playing") else "▶", lambda: self.spotify_control("playpause"), side="left", padx=4, ipadx=18, ipady=8)
+        self.button(controls, "⏭", lambda: self.spotify_control("next"), side="left", padx=4, ipadx=12, ipady=8, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(controls, "Szukaj", self.show_spotify_search, side="left", padx=12, ipadx=14, ipady=8)
+
+        device = sp.get("device_name", "Brak urządzenia")
+        tk.Label(info, text=f"Urządzenie: {device}", font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=(20, 0))
+
+        self.toast("Spotify")
+
+    def spotify_login(self):
+        try:
+            ensure_callback_server()
+            verifier, challenge = create_pkce_pair()
+            state = secrets.token_urlsafe(24)
+
+            write_json(SESSION_PATH, {
+                "code_verifier": verifier,
+                "state": state
+            })
+
+            params = {
+                "client_id": CLIENT_ID,
+                "response_type": "code",
+                "redirect_uri": REDIRECT_URI,
+                "code_challenge_method": "S256",
+                "code_challenge": challenge,
+                "state": state,
+                "scope": SCOPES,
+                "show_dialog": "true"
+            }
+
+            url = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(params)
+
+            # Open login in the default browser. The app itself remains native.
+            webbrowser.open(url)
+            self.toast("Otworzyłem logowanie Spotify. Po zalogowaniu wróć do aplikacji.")
+        except Exception as e:
+            self.toast(f"Błąd logowania: {e}")
+
+    def spotify_logout(self):
+        try:
+            if TOKENS_PATH.exists():
+                TOKENS_PATH.unlink()
+            if SESSION_PATH.exists():
+                SESSION_PATH.unlink()
+            self.spotify_last = spotify_status()
+            self.toast("Spotify zresetowane")
+            self.show_spotify()
+        except Exception as e:
+            self.toast(f"Błąd resetu: {e}")
+
+    def spotify_control(self, action):
+        def worker():
+            if action == "next":
+                data, code = spotify_api("/me/player/next", method="POST")
+            elif action == "previous":
+                data, code = spotify_api("/me/player/previous", method="POST")
+            elif action == "playpause":
+                status = spotify_status()
+                if status.get("is_playing"):
+                    data, code = spotify_api("/me/player/pause", method="PUT")
+                else:
+                    data, code = spotify_api("/me/player/play", method="PUT")
+            else:
+                data, code = {"error": "unknown action"}, 400
+
+            if code in (200, 204):
+                self.root.after(0, lambda: self.toast("Spotify: OK"))
+            else:
+                self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+            self.root.after(700, self.show_spotify)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_spotify_debug(self):
+        self.screen = "debug"
+        self.clear_content()
+
+        page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
+        page.pack(fill="both", expand=True)
+
+        tk.Label(page, text="Spotify Debug", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", padx=22, pady=(20, 0))
+        tk.Label(page, text="Diagnostyka", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", padx=22, pady=(5, 0))
+
+        tokens = read_json(TOKENS_PATH, {})
+        scope = tokens.get("scope", "BRAK TOKENU")
+        connected = "TAK" if spotify_tokens() else "NIE"
+
+        text = (
+            f"Wersja: {APP_VERSION}\n"
+            f"Spotify token: {connected}\n"
+            f"Callback: {REDIRECT_URI}\n\n"
+            f"Scope:\n{scope}\n\n"
+            "Nie pokazuję access_token ani refresh_token."
+        )
+
         tk.Label(
             page,
-            text=(
-                "W v4.0 Alpha przenieśliśmy projekt z przeglądarki do aplikacji.\n\n"
-                "Spotify wróci w v4.1 jako natywny moduł aplikacji:\n"
-                "• teraz gra\n"
-                "• play/pauza\n"
-                "• wyszukiwarka\n"
-                "• playlisty\n"
-                "• własna klawiatura ekranowa\n\n"
-                "Najpierw testujemy stabilność aplikacji na ekranie 7 cali."
-            ),
-            font=self.font_body,
+            text=text,
+            font=self.font_small,
             bg=self.colors["panel"],
             fg=self.colors["muted"],
-            justify="left"
-        ).pack(anchor="w", padx=24, pady=18)
+            justify="left",
+            wraplength=820
+        ).pack(anchor="w", padx=22, pady=18)
 
-        tk.Button(
+        self.button(page, "Wróć do Spotify", self.show_spotify, anchor="w", padx=22, pady=8, ipadx=16, ipady=8)
+
+    def show_spotify_search(self):
+        self.screen = "search"
+        self.clear_content()
+
+        page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
+        page.pack(fill="both", expand=True)
+
+        head = tk.Frame(page, bg=self.colors["panel"])
+        head.pack(fill="x", padx=18, pady=(14, 6))
+
+        left = tk.Frame(head, bg=self.colors["panel"])
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(left, text="Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text="Wyszukiwarka", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
+
+        self.button(head, "Szukaj", self.spotify_search, side="right", padx=4, ipadx=12, ipady=7)
+        self.button(head, "Wyczyść", self.clear_search, side="right", padx=4, ipadx=12, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        self.search_label = tk.Label(
             page,
-            text="Wróć do dashboardu",
+            text=self.search_query or "Dotknij klawiszy poniżej",
             font=self.font_body,
-            bg=self.colors["green"],
-            fg="#041107",
-            relief="flat",
-            command=self.show_home
-        ).pack(anchor="w", padx=24, pady=10, ipadx=18, ipady=8)
+            bg=self.colors["card"],
+            fg=self.colors["text"],
+            anchor="w",
+            padx=14,
+            pady=8
+        )
+        self.search_label.pack(fill="x", padx=18, pady=(0, 8))
 
-        self.toast("Spotify będzie w v4.1")
+        middle = tk.Frame(page, bg=self.colors["panel"])
+        middle.pack(fill="both", expand=True, padx=18)
+
+        self.results_frame = tk.Frame(middle, bg=self.colors["panel"])
+        self.results_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+        self.keyboard_frame = tk.Frame(middle, bg=self.colors["card"], width=390, highlightthickness=1, highlightbackground="#243244")
+        self.keyboard_frame.pack(side="right", fill="y")
+        self.keyboard_frame.pack_propagate(False)
+
+        self.render_search_results()
+        self.render_keyboard()
+
+        self.toast("Wyszukiwarka Spotify")
+
+    def render_keyboard(self):
+        for child in self.keyboard_frame.winfo_children():
+            child.destroy()
+
+        rows = [
+            list("QWERTYUIOP"),
+            list("ASDFGHJKL"),
+            list("ZXCVBNM"),
+            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+            ["SPACJA", "⌫", "ENTER"]
+        ]
+
+        for row in rows:
+            row_frame = tk.Frame(self.keyboard_frame, bg=self.colors["card"])
+            row_frame.pack(fill="x", padx=6, pady=4)
+
+            for key in row:
+                if key == "SPACJA":
+                    width = 10
+                elif key == "ENTER":
+                    width = 7
+                else:
+                    width = 3
+
+                btn = tk.Button(
+                    row_frame,
+                    text=key,
+                    font=self.font_small,
+                    width=width,
+                    bg=self.colors["panel2"] if key not in ("ENTER",) else self.colors["green"],
+                    fg=self.colors["text"] if key != "ENTER" else "#041107",
+                    relief="flat",
+                    command=lambda k=key: self.keyboard_press(k)
+                )
+                btn.pack(side="left", padx=2, ipady=5)
+
+    def keyboard_press(self, key):
+        if key == "⌫":
+            self.search_query = self.search_query[:-1]
+        elif key == "SPACJA":
+            self.search_query += " "
+        elif key == "ENTER":
+            self.spotify_search()
+            return
+        else:
+            self.search_query += key.lower()
+
+        self.search_label.configure(text=self.search_query or "Dotknij klawiszy poniżej")
+
+    def clear_search(self):
+        self.search_query = ""
+        self.search_results = []
+        self.show_spotify_search()
+
+    def spotify_search(self):
+        query = self.search_query.strip()
+
+        if not query:
+            self.toast("Wpisz nazwę utworu")
+            return
+
+        self.toast("Szukam...")
+
+        def worker():
+            q = urllib.parse.urlencode({"q": query, "type": "track", "limit": 8})
+            data, code = spotify_api(f"/search?{q}")
+
+            if code != 200:
+                self.search_results = [{
+                    "name": friendly_spotify_error(code, data),
+                    "artist": "Błąd wyszukiwania",
+                    "uri": None
+                }]
+            else:
+                items = []
+                for track in (data or {}).get("tracks", {}).get("items", []):
+                    artists = track.get("artists") or []
+                    items.append({
+                        "name": track.get("name", "Bez tytułu"),
+                        "artist": ", ".join(a.get("name", "") for a in artists),
+                        "uri": track.get("uri")
+                    })
+                self.search_results = items
+
+            self.root.after(0, self.show_spotify_search)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def render_search_results(self):
+        for child in self.results_frame.winfo_children():
+            child.destroy()
+
+        if not self.search_results:
+            tk.Label(
+                self.results_frame,
+                text="Wpisz utwór i kliknij Szukaj.",
+                font=self.font_body,
+                bg=self.colors["panel"],
+                fg=self.colors["muted"]
+            ).pack(anchor="w", pady=10)
+            return
+
+        for item in self.search_results:
+            row = tk.Frame(self.results_frame, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+            row.pack(fill="x", pady=4)
+
+            tk.Label(row, text="♫", font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=10)
+
+            txt = tk.Frame(row, bg=self.colors["card"])
+            txt.pack(side="left", fill="x", expand=True, pady=8)
+
+            tk.Label(txt, text=item["name"], font=self.font_small, bg=self.colors["card"], fg=self.colors["text"], anchor="w").pack(anchor="w")
+            tk.Label(txt, text=item["artist"], font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"], anchor="w").pack(anchor="w")
+
+            if item.get("uri"):
+                tk.Button(
+                    row,
+                    text="Play",
+                    font=self.font_small,
+                    bg=self.colors["green"],
+                    fg="#041107",
+                    relief="flat",
+                    command=lambda uri=item["uri"]: self.spotify_play_track(uri)
+                ).pack(side="right", padx=8, ipadx=8, ipady=5)
+
+    def spotify_play_track(self, uri):
+        def worker():
+            data, code = spotify_api("/me/player/play", method="PUT", payload={"uris": [uri]})
+
+            if code in (200, 204):
+                self.root.after(0, lambda: self.toast("Odtwarzam utwór"))
+                self.root.after(800, self.show_spotify)
+            else:
+                self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def show_weather(self):
         self.screen = "weather"
@@ -450,15 +1077,7 @@ class SmartHubApp:
         tk.Label(page, text=self.weather_data["text"], font=self.font_h2, bg=self.colors["panel"], fg=self.colors["muted"]).pack()
         tk.Label(page, text=f'Miasto: {CONFIG["city"]}   Wiatr: {self.weather_data["wind"]} km/h', font=self.font_body, bg=self.colors["panel"], fg=self.colors["text"]).pack(pady=18)
 
-        tk.Button(
-            page,
-            text="Odśwież pogodę",
-            font=self.font_body,
-            bg=self.colors["green"],
-            fg="#041107",
-            relief="flat",
-            command=self.refresh_weather_now
-        ).pack(ipadx=18, ipady=8)
+        self.button(page, "Odśwież pogodę", self.refresh_weather_now, ipadx=18, ipady=8)
 
         self.toast("Pogoda")
 
@@ -492,31 +1111,26 @@ class SmartHubApp:
 
         tk.Label(page, text="Ustawienia", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", padx=24, pady=(24, 0))
         tk.Label(page, text="MD Smart Hub OS", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", padx=24, pady=(10, 0))
+
+        text = (
+            f"Wersja: {APP_VERSION}\n"
+            f"Miasto: {CONFIG['city']}\n"
+            f"Redirect URI Spotify: {REDIRECT_URI}\n\n"
+            "ESC wyłącza pełny ekran.\n"
+            "F11 przełącza pełny ekran.\n\n"
+            "Kolejny etap: v4.2 Spotify Playlists + Devices."
+        )
+
         tk.Label(
             page,
-            text=(
-                f"Wersja: {APP_VERSION}\n"
-                f"Miasto: {CONFIG['city']}\n"
-                f"Ekran: 1024×600\n\n"
-                "ESC wyłącza pełny ekran.\n"
-                "F11 przełącza pełny ekran.\n\n"
-                "Kolejny etap: v4.1 Spotify Native."
-            ),
+            text=text,
             font=self.font_body,
             bg=self.colors["panel"],
             fg=self.colors["muted"],
             justify="left"
         ).pack(anchor="w", padx=24, pady=18)
 
-        tk.Button(
-            page,
-            text="Zamknij aplikację",
-            font=self.font_body,
-            bg=self.colors["red"],
-            fg="white",
-            relief="flat",
-            command=self.root.destroy
-        ).pack(anchor="w", padx=24, pady=10, ipadx=18, ipady=8)
+        self.button(page, "Zamknij aplikację", self.root.destroy, anchor="w", padx=24, pady=10, ipadx=18, ipady=8, bg=self.colors["red"], fg="white")
 
         self.toast("Ustawienia")
 
@@ -575,18 +1189,28 @@ class SmartHubApp:
         now = time.localtime()
         self.time_label.configure(text=time.strftime("%H:%M", now))
         self.date_label.configure(text=time.strftime("%d.%m.%Y", now))
-
         self.root.after(1000, self.tick_clock)
 
     def tick_system(self):
         temp = cpu_temp()
         wifi = "Wi‑Fi ✓" if is_online() else "Wi‑Fi ?"
-        self.status_label.configure(text=f"{wifi} • CPU {temp:.1f}°C • MD")
+        spotify_txt = "Spotify ✓" if spotify_tokens() else "Spotify ?"
+        self.status_label.configure(text=f"{wifi} • {spotify_txt} • CPU {temp:.1f}°C • MD")
 
         if self.screen == "system":
             self.update_system_screen()
 
         self.root.after(3000, self.tick_system)
+
+    def tick_spotify(self):
+        def worker():
+            self.spotify_last = spotify_status()
+            if self.screen in ("spotify", "home"):
+                # Do not redraw too aggressively while user interacts.
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.root.after(5000, self.tick_spotify)
 
     def start_weather_loop(self):
         self.refresh_weather_now()
@@ -612,8 +1236,9 @@ class SmartHubApp:
 
 
 def main():
+    ensure_callback_server()
     root = tk.Tk()
-    app = SmartHubApp(root)
+    SmartHubApp(root)
     root.mainloop()
 
 
