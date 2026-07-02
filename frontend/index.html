@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>MD Smart Hub OS</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="boot">
+    <div class="boot-logo">MD</div>
+    <div class="boot-title">SMART HUB OS</div>
+    <div class="boot-subtitle">v2.0</div>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <div id="time" class="time">--:--</div>
+        <div id="date" class="date">Ładowanie...</div>
+      </div>
+
+      <div class="status">
+        <span id="wifi">Wi‑Fi</span>
+        <span id="bt">BT</span>
+        <span>MD</span>
+      </div>
+    </header>
+
+    <section id="home" class="screen active">
+      <div class="hero glass">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h1>MD Smart Hub</h1>
+          <p class="muted">System sterowania pokojem, muzyką i smart home.</p>
+        </div>
+        <button onclick="showScreen('system')">System</button>
+      </div>
+
+      <div class="tiles">
+        <button class="tile spotify" onclick="showScreen('spotify')">
+          <span>🎵</span>
+          <small>Muzyka</small>
+          <strong>Spotify</strong>
+        </button>
+
+        <button class="tile" onclick="showScreen('weather')">
+          <span>🌤️</span>
+          <small>Pogoda</small>
+          <strong id="weatherTile">--°C</strong>
+        </button>
+
+        <button class="tile" onclick="showScreen('system')">
+          <span>🖥️</span>
+          <small>Raspberry</small>
+          <strong id="tempTile">--°C</strong>
+        </button>
+
+        <button class="tile" onclick="toast('Światła dodamy przez Home Assistant')">
+          <span>💡</span>
+          <small>Światła</small>
+          <strong>Soon</strong>
+        </button>
+      </div>
+    </section>
+
+    <section id="spotify" class="screen">
+      <div class="panel glass">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('home')">←</button>
+          <div>
+            <p class="eyebrow">Muzyka</p>
+            <h2>Spotify</h2>
+          </div>
+        </div>
+
+        <div class="album">🎧</div>
+        <h3>Spotify Web Player</h3>
+        <p class="muted center">Docelowo tutaj będzie prawdziwy utwór, okładka i sterowanie.</p>
+
+        <div class="progress"><i></i></div>
+
+        <div class="controls">
+          <button>⏮</button>
+          <button class="play">▶</button>
+          <button>⏭</button>
+        </div>
+
+        <button class="wide" onclick="openSpotify()">Otwórz Spotify</button>
+      </div>
+    </section>
+
+    <section id="weather" class="screen">
+      <div class="panel glass">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('home')">←</button>
+          <div>
+            <p class="eyebrow">Online</p>
+            <h2>Pogoda</h2>
+          </div>
+        </div>
+
+        <div class="weather-main">
+          <div id="weatherIcon">🌤️</div>
+          <div>
+            <strong id="weatherTemp">--°C</strong>
+            <p id="weatherDesc" class="muted">Ładowanie...</p>
+          </div>
+        </div>
+
+        <div class="mini-grid">
+          <div><small>Miasto</small><strong id="city">Warszawa</strong></div>
+          <div><small>Wiatr</small><strong id="wind">-- km/h</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="system" class="screen">
+      <div class="panel glass">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('home')">←</button>
+          <div>
+            <p class="eyebrow">Raspberry</p>
+            <h2>System</h2>
+          </div>
+        </div>
+
+        <div class="system-grid">
+          <div class="metric">
+            <small>CPU temp</small>
+            <strong id="cpuTemp">--°C</strong>
+            <div class="bar"><i id="tempBar"></i></div>
+          </div>
+
+          <div class="metric">
+            <small>CPU load</small>
+            <strong id="cpuLoad">--%</strong>
+            <div class="bar"><i id="cpuBar"></i></div>
+          </div>
+
+          <div class="metric">
+            <small>RAM</small>
+            <strong id="ram">--%</strong>
+            <div class="bar"><i id="ramBar"></i></div>
+          </div>
+
+          <div class="metric">
+            <small>Uptime</small>
+            <strong id="uptime">--</strong>
+            <p class="muted">czas pracy</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="bottom glass">
+      <div>
+        <strong>MD Smart Hub OS v2.0</strong>
+        <span id="toast">System gotowy</span>
+      </div>
+      <button onclick="location.reload()">Odśwież</button>
+    </footer>
+  </main>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

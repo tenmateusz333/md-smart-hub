@@ -5,23 +5,23 @@
 
 :root {
   --bg: #05070d;
-  --glass: rgba(255, 255, 255, 0.08);
-  --glass2: rgba(255, 255, 255, 0.12);
-  --border: rgba(255, 255, 255, 0.15);
-  --text: #f8fbff;
-  --muted: #9ba9bd;
-  --blue: #62d5ff;
+  --glass: rgba(255,255,255,.08);
+  --border: rgba(255,255,255,.14);
+  --text: #f7fbff;
+  --muted: #9aa8bb;
   --green: #1ed760;
-  --shadow: rgba(0, 0, 0, 0.45);
+  --blue: #62d5ff;
+  --warn: #ffb020;
+  --red: #ff5c7a;
 }
 
 html, body {
+  margin: 0;
   width: 100%;
   height: 100%;
-  margin: 0;
   overflow: hidden;
   font-family: Arial, Helvetica, sans-serif;
-  background: var(--bg);
+  background: #05070d;
   color: var(--text);
   cursor: none;
 }
@@ -30,23 +30,23 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(circle at 80% 8%, rgba(98, 213, 255, 0.35), transparent 34%),
-    radial-gradient(circle at 10% 15%, rgba(30, 215, 96, 0.18), transparent 28%),
-    linear-gradient(135deg, #05070d, #0a1020 58%, #05070d);
   z-index: -2;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(98,213,255,.32), transparent 34%),
+    radial-gradient(circle at 8% 15%, rgba(30,215,96,.18), transparent 30%),
+    linear-gradient(135deg, #05070d, #0a1020 60%, #05070d);
 }
 
 body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 42px 42px;
-  opacity: .35;
   z-index: -1;
+  opacity: .33;
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 42px 42px;
 }
 
 #boot {
@@ -57,47 +57,38 @@ body::after {
   place-items: center;
   background: #03050a;
   animation: bootOut .7s ease forwards;
-  animation-delay: 1.6s;
+  animation-delay: 1.4s;
 }
 
 .boot-logo {
   width: 104px;
   height: 104px;
-  border-radius: 32px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.04));
-  border: 1px solid rgba(255,255,255,.18);
-  color: white;
+  border-radius: 32px;
   font-size: 40px;
   font-weight: 900;
-  box-shadow: 0 30px 80px rgba(98,213,255,.18);
+  background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.04));
+  border: 1px solid rgba(255,255,255,.18);
 }
 
 .boot-title {
   position: absolute;
-  margin-top: 165px;
-  letter-spacing: 7px;
+  margin-top: 160px;
   color: var(--muted);
+  letter-spacing: 7px;
   font-size: 12px;
 }
 
-.boot-line {
+.boot-subtitle {
   position: absolute;
-  margin-top: 225px;
-  width: 170px;
-  height: 3px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, transparent, var(--blue), var(--green), transparent);
-  animation: pulse 1.2s ease infinite;
+  margin-top: 205px;
+  color: var(--green);
+  font-weight: 900;
 }
 
 @keyframes bootOut {
   to { opacity: 0; visibility: hidden; transform: scale(1.03); }
-}
-
-@keyframes pulse {
-  50% { opacity: .35; transform: scaleX(.7); }
 }
 
 .app {
@@ -112,7 +103,7 @@ body::after {
 .glass {
   background: var(--glass);
   border: 1px solid var(--border);
-  box-shadow: 0 22px 60px var(--shadow);
+  box-shadow: 0 22px 60px rgba(0,0,0,.45);
   backdrop-filter: blur(20px);
 }
 
@@ -135,37 +126,35 @@ body::after {
   font-size: 13px;
 }
 
-.top-pills {
+.status {
   display: flex;
   gap: 8px;
 }
 
-.pill {
+.status span {
   padding: 9px 11px;
   border-radius: 999px;
   background: rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.12);
-  color: #d9e9ff;
   font-size: 12px;
 }
 
-.pill.accent {
-  color: #06130b;
+.status span:last-child {
   background: var(--green);
-  border: 0;
+  color: #041107;
   font-weight: 900;
+  border: 0;
 }
 
 .screen {
   grid-row: 2 / 3;
   grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
   opacity: 0;
   pointer-events: none;
   transform: translateX(30px) scale(.985);
   transition: opacity .28s ease, transform .28s ease;
-  display: grid;
-  grid-template-rows: 1.08fr 1fr;
-  gap: 10px;
 }
 
 .screen.active {
@@ -174,166 +163,152 @@ body::after {
   transform: translateX(0) scale(1);
 }
 
-.hero-card {
+#home {
+  grid-template-rows: 1.08fr 1fr;
+}
+
+.hero {
   border-radius: 26px;
   padding: 18px;
   display: flex;
   align-items: end;
   justify-content: space-between;
-  background:
-    linear-gradient(135deg, rgba(98, 213, 255, .20), rgba(255,255,255,.06)),
-    rgba(255,255,255,.08);
+  background: linear-gradient(135deg, rgba(98,213,255,.2), rgba(255,255,255,.06)), rgba(255,255,255,.08);
 }
 
 .eyebrow {
+  margin: 0 0 5px;
   color: var(--green);
-  text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 2px;
+  text-transform: uppercase;
   font-weight: 900;
 }
 
+h1, h2, h3 {
+  margin: 0;
+}
+
 h1 {
-  margin: 4px 0 8px;
   font-size: 36px;
   letter-spacing: -2px;
 }
 
 h2 {
-  margin: 0;
   font-size: 34px;
-  letter-spacing: -1px;
 }
 
-p {
-  margin: 0;
-  max-width: 320px;
-  color: #c8d2df;
+h3 {
+  text-align: center;
+  font-size: 26px;
+}
+
+.muted {
+  color: var(--muted);
   font-size: 14px;
 }
 
-.main-btn, .small-btn, .spotify-open {
-  border: 0;
-  border-radius: 18px;
-  padding: 16px 22px;
-  background: var(--green);
-  color: #031107;
-  font-size: 18px;
-  font-weight: 900;
-  box-shadow: 0 18px 40px rgba(30,215,96,.22);
+.center {
+  text-align: center;
 }
 
-.grid {
+button {
+  border: 0;
+  border-radius: 18px;
+  padding: 15px 20px;
+  background: var(--green);
+  color: #041107;
+  font-weight: 900;
+  font-size: 17px;
+  cursor: none;
+}
+
+button:active {
+  transform: scale(.98);
+  filter: brightness(1.1);
+}
+
+.tiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
 
 .tile {
-  color: white;
-  border-radius: 22px;
   padding: 13px;
+  border-radius: 22px;
+  color: white;
   text-align: left;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-width: 0;
 }
 
-.spotify-tile {
-  background:
-    linear-gradient(145deg, rgba(30,215,96,.20), rgba(255,255,255,.07));
+.tile.spotify {
+  background: linear-gradient(145deg, rgba(30,215,96,.2), rgba(255,255,255,.07));
 }
 
-.icon {
+.tile span {
   font-size: 28px;
 }
 
-.tile-title {
+.tile small {
   color: var(--muted);
   font-size: 12px;
-  margin-top: 8px;
 }
 
-.tile-value {
+.tile strong {
   font-size: 16px;
-  font-weight: 900;
-  white-space: nowrap;
 }
 
-#spotify {
-  grid-template-rows: 1fr;
-}
-
-.spotify-screen {
+.panel {
   border-radius: 28px;
   padding: 18px;
   display: grid;
-  grid-template-rows: 58px 1fr auto auto auto auto;
-  gap: 10px;
-  background:
-    linear-gradient(145deg, rgba(30,215,96,.18), rgba(98,213,255,.08)),
-    rgba(255,255,255,.08);
+  gap: 12px;
+  background: linear-gradient(145deg, rgba(30,215,96,.12), rgba(98,213,255,.08)), rgba(255,255,255,.08);
 }
 
-.screen-header {
+.screen-head {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.back-btn {
+.back {
   width: 52px;
   height: 52px;
+  padding: 0;
   border-radius: 18px;
-  border: 0;
   background: rgba(255,255,255,.13);
   color: white;
   font-size: 28px;
 }
 
-.album-art {
+.album {
   width: 130px;
   height: 130px;
   justify-self: center;
-  align-self: center;
-  border-radius: 34px;
   display: grid;
   place-items: center;
   font-size: 58px;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,.25), transparent 40%),
-    linear-gradient(145deg, rgba(30,215,96,.75), rgba(98,213,255,.32));
-  box-shadow: 0 30px 80px rgba(0,0,0,.35);
+  border-radius: 34px;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.25), transparent 40%), linear-gradient(145deg, rgba(30,215,96,.75), rgba(98,213,255,.32));
 }
 
-.track-info {
-  text-align: center;
-}
-
-.track-title {
-  font-size: 26px;
-  font-weight: 900;
-}
-
-.track-subtitle {
-  color: var(--muted);
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-.fake-progress {
+.progress {
   height: 8px;
   border-radius: 999px;
   background: rgba(255,255,255,.12);
   overflow: hidden;
 }
 
-.fake-progress span {
+.progress i {
   display: block;
-  height: 100%;
   width: 42%;
-  border-radius: inherit;
+  height: 100%;
   background: var(--green);
 }
 
@@ -346,8 +321,7 @@ p {
 .controls button {
   width: 58px;
   height: 48px;
-  border-radius: 18px;
-  border: 0;
+  padding: 0;
   background: rgba(255,255,255,.14);
   color: white;
   font-size: 22px;
@@ -355,13 +329,74 @@ p {
 
 .controls .play {
   background: var(--green);
-  color: #031107;
-  font-weight: 900;
+  color: #041107;
 }
 
-.spotify-open {
+.wide {
   width: 100%;
-  padding: 15px;
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+.weather-main > div:first-child {
+  font-size: 82px;
+}
+
+.weather-main strong {
+  font-size: 62px;
+  font-weight: 300;
+  letter-spacing: -3px;
+}
+
+.mini-grid,
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.mini-grid div,
+.metric {
+  border-radius: 20px;
+  padding: 14px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+}
+
+.mini-grid small,
+.metric small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mini-grid strong,
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+}
+
+.bar {
+  margin-top: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 1%;
+  background: var(--green);
+  border-radius: inherit;
+  transition: width .3s ease;
 }
 
 .bottom {
@@ -383,18 +418,7 @@ p {
   font-size: 12px;
 }
 
-.small-btn {
+.bottom button {
   font-size: 13px;
   padding: 11px 15px;
-  border-radius: 15px;
-}
-
-button {
-  touch-action: manipulation;
-  cursor: none;
-}
-
-button:active {
-  transform: scale(.98);
-  filter: brightness(1.12);
 }
