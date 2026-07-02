@@ -1,34 +1,19 @@
 # CHANGELOG
 
-## v4.2 Big Spotify Update
+## v4.3 Devices + Bluetooth
 
-- Przebudowano klawiaturę ekranową w wyszukiwarce.
-- Klawiatura jest teraz pozioma i pełniejsza.
-- Dodano ekran Playlisty.
-- Dodano pobieranie playlist Spotify.
-- Dodano otwieranie playlist.
-- Dodano listę utworów w playliście.
-- Dodano odtwarzanie całej playlisty.
-- Dodano odtwarzanie utworu z playlisty.
-- Dodano przewijanie utworu przyciskami -15s / +15s.
-- Poprawiono układ odtwarzacza na ekranie 1024x600.
+- Dodano ekran Audio.
+- Dodano listę urządzeń Spotify.
+- Dodano wybór urządzenia Spotify.
+- Dodano regulację głośności Spotify.
+- Dodano status librespot.
+- Dodano status zapisanego soundbara Bluetooth.
+- Dodano instalator Spotify Connect przez librespot.
+- Dodano skrypt skanowania Bluetooth.
+- Dodano skrypt parowania i łączenia soundbara.
+- Dodano skrypt start-audio-app.sh.
 
-## v4.1 Spotify Native
+## v4.2.2 Playlist Empty Fix
 
-- Dodano natywny moduł Spotify w aplikacji.
-- Dodano logowanie Spotify przez PKCE.
-- Dodano lokalny callback OAuth na porcie 8765.
-- Dodano ekran teraz gra.
-- Dodano play/pauza, następny, poprzedni.
-- Dodano wyszukiwarkę Spotify.
-- Dodano własną klawiaturę ekranową w aplikacji.
-- Dodano ekran diagnostyczny Spotify Debug.
-
-## v4.0 Alpha App Edition
-
-- Start nowej gałęzi aplikacyjnej.
-- Dodana aplikacja pełnoekranowa Python/Tkinter.
-- Dodany dashboard.
-- Dodana pogoda.
-- Dodany ekran systemu.
-- Dodany ekran ustawień.
+- Poprawiono logikę pobierania utworów playlisty.
+- Poprawiono komunikat, gdy Spotify nadal nie pokazuje utworów.

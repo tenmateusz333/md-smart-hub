@@ -16,7 +16,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import font as tkfont
 
-APP_VERSION = "v4.2 Big Spotify Update"
+APP_VERSION = "v4.3 Devices + Bluetooth"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
 CONFIG_PATH = DATA_ROOT / "config.json"
@@ -519,28 +519,148 @@ def spotify_get_playlists(limit=30):
 
 
 def spotify_get_playlist_tracks(playlist_id, limit=50):
-    query = urllib.parse.urlencode({"limit": limit})
-    data, code = spotify_api(f"/playlists/{playlist_id}/tracks?{query}")
+    attempts = [
+        f"/playlists/{playlist_id}/tracks?" + urllib.parse.urlencode({"limit": limit}),
+        f"/playlists/{playlist_id}/tracks?" + urllib.parse.urlencode({"limit": limit, "market": "from_token"}),
+        f"/playlists/{playlist_id}/tracks?" + urllib.parse.urlencode({
+            "limit": limit,
+            "market": "from_token",
+            "additional_types": "track,episode"
+        }),
+        f"/playlists/{playlist_id}?"
+        + urllib.parse.urlencode({
+            "fields": "tracks(total,items(track(name,uri,type,artists(name),album(name))))"
+        }),
+    ]
+
+    last_code = None
+    last_data = None
+    empty_successes = 0
+
+    for path in attempts:
+        data, code = spotify_api(path)
+        last_code = code
+        last_data = data
+
+        if code != 200:
+            continue
+
+        if "tracks" in (data or {}) and isinstance((data or {}).get("tracks"), dict):
+            entries = ((data or {}).get("tracks") or {}).get("items", [])
+        else:
+            entries = (data or {}).get("items", [])
+
+        if not entries:
+            empty_successes += 1
+            continue
+
+        tracks = []
+
+        for entry in entries:
+            track = (entry or {}).get("track") or {}
+
+            if not track:
+                continue
+
+            uri = track.get("uri")
+            name = track.get("name")
+
+            if not uri and not name:
+                continue
+
+            artists = track.get("artists") or []
+
+            tracks.append({
+                "name": name or "Bez tytułu",
+                "artist": ", ".join(a.get("name", "") for a in artists if a.get("name")),
+                "uri": uri
+            })
+
+        if tracks:
+            return tracks, None
+
+        empty_successes += 1
+
+    if empty_successes > 0:
+        return [], (
+            "Spotify zwrócił pustą listę utworów dla tej playlisty, mimo że odtwarzanie może działać. "
+            "Aplikacja próbowała kilku metod pobierania. Użyj przycisku Play u góry, żeby odtworzyć całą playlistę."
+        )
+
+    message = friendly_spotify_error(last_code, last_data)
+    return [], (
+        f"{message}\n\n"
+        "Spotify pozwala odtworzyć tę playlistę, ale nie pozwala aplikacji odczytać listy utworów przez API. "
+        "Użyj przycisku Play u góry — odtwarzanie playlisty powinno działać."
+    )
+
+
+def spotify_get_devices():
+    data, code = spotify_api("/me/player/devices")
 
     if code != 200:
         return [], friendly_spotify_error(code, data)
 
-    tracks = []
-    for entry in (data or {}).get("items", []):
-        track = (entry or {}).get("track") or {}
-
-        if not track or not track.get("uri"):
-            continue
-
-        artists = track.get("artists") or []
-
-        tracks.append({
-            "name": track.get("name", "Bez tytułu"),
-            "artist": ", ".join(a.get("name", "") for a in artists),
-            "uri": track.get("uri")
+    devices = []
+    for device in (data or {}).get("devices", []):
+        devices.append({
+            "id": device.get("id"),
+            "name": device.get("name") or "Urządzenie",
+            "type": device.get("type") or "device",
+            "is_active": bool(device.get("is_active")),
+            "volume_percent": device.get("volume_percent")
         })
 
-    return tracks, None
+    return devices, None
+
+
+def spotify_set_volume(value):
+    value = max(0, min(100, int(value)))
+    data, code = spotify_api(f"/me/player/volume?volume_percent={value}", method="PUT")
+    if code in (200, 204):
+        return True, None
+    return False, friendly_spotify_error(code, data)
+
+
+def spotify_transfer_device(device_id, play=False):
+    data, code = spotify_api("/me/player", method="PUT", payload={
+        "device_ids": [device_id],
+        "play": bool(play)
+    })
+
+    if code in (200, 204):
+        return True, None
+
+    return False, friendly_spotify_error(code, data)
+
+
+def service_status(service_name):
+    out = run_cmd(f"systemctl --user is-active {service_name}")
+    return out or "unknown"
+
+
+def command_exists(name):
+    return bool(run_cmd(f"command -v {name}"))
+
+
+def bluetooth_saved_mac():
+    p = DATA_ROOT / "soundbar_mac.txt"
+    if p.exists():
+        return p.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def bluetooth_status():
+    mac = bluetooth_saved_mac()
+    if not mac:
+        return "Brak zapisanego soundbara"
+
+    info = run_cmd(f"bluetoothctl info {mac}")
+    if "Connected: yes" in info:
+        return f"Połączony: {mac}"
+    if "Paired: yes" in info:
+        return f"Zapamiętany, niepołączony: {mac}"
+    return f"Zapisany MAC: {mac}"
 
 
 class SmartHubApp:
@@ -675,7 +795,7 @@ class SmartHubApp:
             ("♫", "spotify", self.show_spotify),
             ("⌕", "search", self.show_spotify_search),
             ("☷", "playlists", self.show_playlists),
-            ("☁", "weather", self.show_weather),
+            ("🔊", "audio", self.show_audio),
             ("▣", "system", self.show_system),
             ("⚙", "settings", self.show_settings),
         ]
@@ -848,9 +968,10 @@ class SmartHubApp:
 
         row2 = tk.Frame(info, bg=self.colors["panel"])
         row2.pack(anchor="w", pady=(10, 0))
-        self.button(row2, "Szukaj", self.show_spotify_search, side="left", padx=3, ipadx=14, ipady=7)
-        self.button(row2, "Playlisty", self.show_playlists, side="left", padx=8, ipadx=14, ipady=7)
-        self.button(row2, "Odśwież", self.show_spotify, side="left", padx=3, ipadx=14, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(row2, "Szukaj", self.show_spotify_search, side="left", padx=3, ipadx=12, ipady=7)
+        self.button(row2, "Playlisty", self.show_playlists, side="left", padx=6, ipadx=12, ipady=7)
+        self.button(row2, "Audio", self.show_audio, side="left", padx=6, ipadx=12, ipady=7)
+        self.button(row2, "Odśwież", self.show_spotify, side="left", padx=3, ipadx=12, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
 
         device = sp.get("device_name", "Brak urządzenia")
         tk.Label(info, text=f"Urządzenie: {device}", font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=(14, 0))
@@ -1246,7 +1367,12 @@ class SmartHubApp:
         def worker():
             tracks, error = spotify_get_playlist_tracks(playlist.get("id"), limit=50)
             if error:
-                self.playlist_tracks = [{"name": error, "artist": "Błąd playlisty", "uri": None}]
+                self.playlist_tracks = [{
+                    "name": "Spotify nie udostępnia listy utworów",
+                    "artist": error,
+                    "uri": None,
+                    "permission_error": True
+                }]
             else:
                 self.playlist_tracks = tracks
 
@@ -1281,20 +1407,49 @@ class SmartHubApp:
             return
 
         if not self.playlist_tracks:
-            tk.Label(body, text="Brak utworów.", font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
+            tk.Label(
+                body,
+                text="Brak widocznych utworów.\n\nJeżeli przycisk Play odtwarza playlistę, to Spotify pozwala ją odtwarzać, ale nie zwraca aplikacji listy utworów.",
+                font=self.font_body,
+                bg=self.colors["panel"],
+                fg=self.colors["muted"],
+                justify="left",
+                wraplength=820
+            ).pack(anchor="w", pady=8)
             return
 
         for track in self.playlist_tracks[:8]:
             row = tk.Frame(body, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
             row.pack(fill="x", pady=3)
 
-            tk.Label(row, text="♫", font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=10)
+            icon = "!" if track.get("permission_error") else "♫"
+            tk.Label(row, text=icon, font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=10)
 
             txt = tk.Frame(row, bg=self.colors["card"])
             txt.pack(side="left", fill="x", expand=True, pady=6)
 
-            tk.Label(txt, text=track.get("name", "Utwór"), font=self.font_small, bg=self.colors["card"], fg=self.colors["text"], anchor="w").pack(anchor="w")
-            tk.Label(txt, text=track.get("artist", ""), font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"], anchor="w").pack(anchor="w")
+            wrap = 700 if track.get("permission_error") else 520
+            tk.Label(
+                txt,
+                text=track.get("name", "Utwór"),
+                font=self.font_small,
+                bg=self.colors["card"],
+                fg=self.colors["text"],
+                anchor="w",
+                wraplength=wrap,
+                justify="left"
+            ).pack(anchor="w")
+
+            tk.Label(
+                txt,
+                text=track.get("artist", ""),
+                font=self.font_tiny,
+                bg=self.colors["card"],
+                fg=self.colors["muted"],
+                anchor="w",
+                wraplength=wrap,
+                justify="left"
+            ).pack(anchor="w")
 
             if track.get("uri"):
                 tk.Button(
@@ -1341,6 +1496,137 @@ class SmartHubApp:
                 self.root.after(700, self.show_spotify)
             else:
                 self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
+    def show_audio(self):
+        self.screen = "audio"
+        self.clear_content()
+
+        page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
+        page.pack(fill="both", expand=True)
+
+        head = tk.Frame(page, bg=self.colors["panel"])
+        head.pack(fill="x", padx=18, pady=(14, 8))
+
+        left = tk.Frame(head, bg=self.colors["panel"])
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(left, text="Audio", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text="Spotify Devices + Bluetooth", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
+
+        self.button(head, "Odśwież", self.show_audio, side="right", padx=3, ipadx=10, ipady=6)
+        self.button(head, "Spotify", self.show_spotify, side="right", padx=3, ipadx=10, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        body = tk.Frame(page, bg=self.colors["panel"])
+        body.pack(fill="both", expand=True, padx=18, pady=(0, 12))
+
+        top = tk.Frame(body, bg=self.colors["panel"])
+        top.pack(fill="x", pady=(0, 8))
+
+        status_box = tk.Frame(top, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+        status_box.pack(side="left", fill="both", expand=True, padx=(0, 8))
+
+        librespot_bin = "TAK" if command_exists("librespot") or (Path.home() / ".cargo/bin/librespot").exists() else "NIE"
+        librespot_service = service_status("librespot-md-smart-hub.service")
+        bt = bluetooth_status()
+
+        tk.Label(status_box, text="Status Raspberry Audio", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(12, 0))
+        tk.Label(
+            status_box,
+            text=f"Librespot: {librespot_bin}   Usługa: {librespot_service}\nBluetooth: {bt}",
+            font=self.font_small,
+            bg=self.colors["card"],
+            fg=self.colors["muted"],
+            justify="left",
+            wraplength=760
+        ).pack(anchor="w", padx=14, pady=(6, 12))
+
+        vol_box = tk.Frame(top, bg=self.colors["card"], width=260, highlightthickness=1, highlightbackground="#243244")
+        vol_box.pack(side="right", fill="y")
+        vol_box.pack_propagate(False)
+
+        sp = spotify_status()
+        current_vol = sp.get("volume_percent")
+        vol_text = f"{current_vol}%" if isinstance(current_vol, int) else "--%"
+        tk.Label(vol_box, text="Głośność Spotify", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(12, 0))
+        tk.Label(vol_box, text=vol_text, font=self.font_h2, bg=self.colors["card"], fg=self.colors["text"]).pack(anchor="w", padx=14, pady=(4, 4))
+
+        rowv = tk.Frame(vol_box, bg=self.colors["card"])
+        rowv.pack(anchor="w", padx=10, pady=(0, 10))
+        self.button(rowv, "-10", lambda: self.change_volume(-10), side="left", padx=3, ipadx=6, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(rowv, "+10", lambda: self.change_volume(10), side="left", padx=3, ipadx=6, ipady=4)
+        self.button(rowv, "70%", lambda: self.set_volume(70), side="left", padx=3, ipadx=6, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        tk.Label(body, text="Urządzenia Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(4, 4))
+
+        devices_frame = tk.Frame(body, bg=self.colors["panel"])
+        devices_frame.pack(fill="both", expand=True)
+
+        devices, error = spotify_get_devices()
+        if error:
+            tk.Label(devices_frame, text=error, font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
+            return
+
+        if not devices:
+            tk.Label(devices_frame, text="Brak urządzeń Spotify. Uruchom Spotify na telefonie lub włącz usługę Spotify Connect.", font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
+            return
+
+        for device in devices[:7]:
+            row = tk.Frame(devices_frame, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+            row.pack(fill="x", pady=4)
+
+            icon = "✓" if device.get("is_active") else "🔊"
+            tk.Label(row, text=icon, font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=12)
+
+            txt = tk.Frame(row, bg=self.colors["card"])
+            txt.pack(side="left", fill="x", expand=True, pady=8)
+
+            name = device.get("name", "Urządzenie")
+            sub = f"{device.get('type', 'device')} • {device.get('volume_percent', '--')}%"
+            tk.Label(txt, text=name, font=self.font_small, bg=self.colors["card"], fg=self.colors["text"]).pack(anchor="w")
+            tk.Label(txt, text=sub, font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"]).pack(anchor="w")
+
+            if device.get("id"):
+                tk.Button(
+                    row,
+                    text="Wybierz",
+                    font=self.font_small,
+                    bg=self.colors["green"],
+                    fg="#041107",
+                    relief="flat",
+                    command=lambda did=device["id"]: self.transfer_device(did)
+                ).pack(side="right", padx=8, ipadx=8, ipady=5)
+
+        self.toast("Audio")
+
+    def set_volume(self, value):
+        def worker():
+            ok, error = spotify_set_volume(value)
+            if ok:
+                self.root.after(0, lambda: self.toast(f"Głośność {value}%"))
+            else:
+                self.root.after(0, lambda: self.toast(error or "Błąd głośności"))
+            self.root.after(500, self.show_audio)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def change_volume(self, delta):
+        sp = spotify_status()
+        current = sp.get("volume_percent")
+        if not isinstance(current, int):
+            current = 50
+        self.set_volume(max(0, min(100, current + delta)))
+
+    def transfer_device(self, device_id):
+        def worker():
+            ok, error = spotify_transfer_device(device_id, play=False)
+            if ok:
+                self.root.after(0, lambda: self.toast("Wybrano urządzenie Spotify"))
+            else:
+                self.root.after(0, lambda: self.toast(error or "Błąd urządzenia"))
+            self.root.after(800, self.show_audio)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -1399,7 +1685,7 @@ class SmartHubApp:
             f"Redirect URI Spotify: {REDIRECT_URI}\n\n"
             "ESC wyłącza pełny ekran.\n"
             "F11 przełącza pełny ekran.\n\n"
-            "Kolejny etap: v4.3 Spotify Devices + Bluetooth."
+            "Kolejny etap: v4.4 Spotify Connect Stable + Bluetooth autostart."
         )
 
         tk.Label(
