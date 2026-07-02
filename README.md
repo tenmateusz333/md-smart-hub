@@ -2,7 +2,7 @@
 
 ## Aktualna wersja
 
-v3.0 RC1.1 Fix
+v3.0 RC1.2 Fix
 
 To jest kandydat testowy. RC1 skupia się na stabilnym froncie i Spotify API. Spotify Connect na Raspberry + Bluetooth soundbar będzie w RC2.
 
@@ -57,3 +57,10 @@ Po tej aktualizacji trzeba ponownie połączyć Spotify:
 5. Sprawdź playlisty ponownie.
 
 To jest potrzebne, bo playlisty wymagają nowych uprawnień Spotify.
+
+
+## RC1.2
+
+- twarda poprawka klawiatury QWERTY,
+- bezpieczniejsze przyciski playlist,
+- dokładniejszy błąd playlist Spotify.
