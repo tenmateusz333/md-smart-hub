@@ -1,3 +1,10 @@
+## v3.0 RC1.1 Fix
+- Poprawiono klawiaturę ekranową na czytelny układ QWERTY.
+- Zmniejszono wysokość klawiatury, żeby nie ucinała dołu ekranu 1024x600.
+- Poprawiono otwieranie playlist z nazwami zawierającymi apostrofy.
+- Poprawiono zapytanie o utwory playlisty.
+- Dodano rozszerzone uprawnienia Spotify i czytelniejszy komunikat resetu autoryzacji.
+
 # CHANGELOG
 
 ## v3.0 RC1

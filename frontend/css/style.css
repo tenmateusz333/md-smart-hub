@@ -23,4 +23,78 @@ button{border:0;border-radius:16px;padding:12px 16px;background:var(--green);col
 .result-list{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:4px}.result-item{min-height:64px;display:grid;grid-template-columns:50px 1fr auto;gap:10px;align-items:center;border-radius:16px;padding:8px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.12)}.result-img{width:50px;height:50px;border-radius:13px;background:rgba(255,255,255,.1);background-size:cover;background-position:center;display:grid;place-items:center}.result-main{min-width:0}.result-main strong,.result-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.result-main strong{font-size:15px}.result-main small{margin-top:3px;color:var(--muted);font-size:12px}.result-item button{padding:10px 12px;font-size:13px}
 .weather{grid-template-columns:160px 1fr;grid-template-rows:1fr auto;align-items:center}.weather #weatherIcon{font-size:92px;text-align:center}.weather h1{font-size:64px}.weather-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.weather-grid div,.metric{border-radius:18px;padding:13px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}.weather-grid small,.metric small{display:block;color:var(--muted);font-size:12px}.weather-grid strong,.metric strong{display:block;margin-top:6px;font-size:23px}.metric-grid{min-height:0;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.bar{margin-top:10px;height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}.bar i{display:block;height:100%;width:1%;background:var(--green);transition:width .25s ease}
 .bottom{border-radius:18px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}.bottom div{display:flex;flex-direction:column;gap:1px}.bottom span{color:var(--muted);font-size:12px}.bottom button{font-size:13px;padding:9px 14px}
-.keyboard{position:fixed;left:82px;right:10px;bottom:10px;height:276px;z-index:90;border-radius:22px;padding:10px;background:rgba(5,8,14,.98);border:1px solid rgba(255,255,255,.18);box-shadow:0 -24px 90px rgba(0,0,0,.65);backdrop-filter:blur(20px)}.keyboard.hidden{display:none}.keyboard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.keyboard-head button{padding:8px 14px;font-size:13px}.keyboard-preview{height:34px;border-radius:12px;padding:8px 12px;margin-bottom:8px;background:rgba(255,255,255,.08);color:white;font-size:17px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.keys{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}.key{height:39px;border-radius:12px;padding:0;background:rgba(255,255,255,.12);color:white;font-size:16px}.key.special{background:var(--green);color:#041107}.key.wide{grid-column:span 2}.key.space{grid-column:span 5}
+.keyboard{
+  position:fixed;
+  left:82px;
+  right:10px;
+  bottom:10px;
+  height:222px;
+  z-index:90;
+  border-radius:22px;
+  padding:8px;
+  background:rgba(5,8,14,.98);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 -24px 90px rgba(0,0,0,.65);
+  backdrop-filter:blur(20px);
+}
+.keyboard.hidden{display:none}
+.keyboard-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:5px;
+}
+.keyboard-head button{
+  padding:6px 12px;
+  font-size:12px;
+}
+.keyboard-preview{
+  height:30px;
+  border-radius:12px;
+  padding:6px 11px;
+  margin-bottom:6px;
+  background:rgba(255,255,255,.08);
+  color:white;
+  font-size:16px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.keys{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.key-row{
+  display:flex;
+  justify-content:center;
+  gap:5px;
+}
+.key{
+  height:32px;
+  min-width:42px;
+  border-radius:10px;
+  padding:0;
+  background:rgba(255,255,255,.13);
+  color:white;
+  font-size:15px;
+}
+.key.special{
+  background:var(--green);
+  color:#041107;
+}
+.key.backspace{min-width:72px}
+.key.enter{min-width:86px}
+.key.space{min-width:260px}
+.key.pl{min-width:38px;font-size:14px}
+
+
+/* v3.0 RC1.1 touch fixes */
+@media (max-height:620px){
+  .list-page,.system-page,.weather{padding:12px;gap:7px}
+  .result-item{min-height:58px}
+  .result-img{width:44px;height:44px}
+  .keyboard{height:214px}
+  .key{height:30px;min-width:40px}
+  .key.space{min-width:238px}
+}

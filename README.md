@@ -2,7 +2,7 @@
 
 ## Aktualna wersja
 
-v3.0 RC1
+v3.0 RC1.1 Fix
 
 To jest kandydat testowy. RC1 skupia się na stabilnym froncie i Spotify API. Spotify Connect na Raspberry + Bluetooth soundbar będzie w RC2.
 
@@ -44,3 +44,16 @@ W Spotify Developer Dashboard musi być:
 ```text
 http://127.0.0.1:8765/callback
 ```
+
+
+## Ważne po RC1.1
+
+Po tej aktualizacji trzeba ponownie połączyć Spotify:
+
+1. Otwórz panel.
+2. Kliknij `Reset`.
+3. Kliknij `Autoryzuj`.
+4. Zaakceptuj zgody.
+5. Sprawdź playlisty ponownie.
+
+To jest potrzebne, bo playlisty wymagają nowych uprawnień Spotify.

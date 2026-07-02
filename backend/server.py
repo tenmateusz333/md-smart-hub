@@ -10,7 +10,7 @@ DATA_ROOT.mkdir(exist_ok=True)
 
 CLIENT_ID = "7671855d0ad548d2bbdb2c49c386fa2b"
 REDIRECT_URI = "http://127.0.0.1:8765/callback"
-SCOPES = "user-read-playback-state user-read-currently-playing user-modify-playback-state playlist-read-private playlist-read-collaborative user-read-recently-played user-library-read"
+SCOPES = "user-read-private user-read-playback-state user-read-currently-playing user-modify-playback-state playlist-read-private playlist-read-collaborative user-read-recently-played user-library-read"
 TOKENS_FILE = DATA_ROOT / "spotify_tokens.json"
 SESSION_FILE = DATA_ROOT / "spotify_session.json"
 BOOT_TIME = time.time()
@@ -100,7 +100,7 @@ def friendly_spotify_error(code, data):
     if code == 401:
         return "Spotify wymaga ponownego połączenia. Kliknij Reset, potem Autoryzuj."
     if code == 403:
-        return "Spotify odmówił dostępu. Zrób Reset i zaakceptuj nowe uprawnienia."
+        return "Spotify odmówił dostępu do tej funkcji. Kliknij Reset, potem Autoryzuj i zaakceptuj nowe uprawnienia."
     if code == 404:
         return "Brak aktywnego urządzenia Spotify. Włącz Spotify na telefonie lub komputerze."
     if code == 429:
