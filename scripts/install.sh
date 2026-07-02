@@ -3,7 +3,7 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-echo "MD Smart Hub OS v4.1 Spotify Native"
+echo "MD Smart Hub OS v4.2 Big Spotify Update"
 echo "Instaluję podstawowe zależności aplikacji..."
 
 sudo apt update

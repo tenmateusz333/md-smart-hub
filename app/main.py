@@ -16,7 +16,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import font as tkfont
 
-APP_VERSION = "v4.1 Spotify Native"
+APP_VERSION = "v4.2 Big Spotify Update"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
 CONFIG_PATH = DATA_ROOT / "config.json"
@@ -479,6 +479,70 @@ def fmt_ms(ms):
     return f"{minutes}:{seconds:02d}"
 
 
+
+def spotify_search_tracks(query, limit=8):
+    q = urllib.parse.urlencode({"q": query, "type": "track", "limit": limit})
+    data, code = spotify_api(f"/search?{q}")
+
+    if code != 200:
+        return [], friendly_spotify_error(code, data)
+
+    items = []
+    for track in (data or {}).get("tracks", {}).get("items", []):
+        artists = track.get("artists") or []
+        items.append({
+            "name": track.get("name", "Bez tytułu"),
+            "artist": ", ".join(a.get("name", "") for a in artists),
+            "uri": track.get("uri")
+        })
+
+    return items, None
+
+
+def spotify_get_playlists(limit=30):
+    data, code = spotify_api(f"/me/playlists?limit={limit}")
+
+    if code != 200:
+        return [], friendly_spotify_error(code, data)
+
+    playlists = []
+    for playlist in (data or {}).get("items", []):
+        tracks = playlist.get("tracks") or {}
+        playlists.append({
+            "id": playlist.get("id"),
+            "name": playlist.get("name") or "Bez nazwy",
+            "uri": playlist.get("uri"),
+            "total": tracks.get("total", 0)
+        })
+
+    return playlists, None
+
+
+def spotify_get_playlist_tracks(playlist_id, limit=50):
+    query = urllib.parse.urlencode({"limit": limit})
+    data, code = spotify_api(f"/playlists/{playlist_id}/tracks?{query}")
+
+    if code != 200:
+        return [], friendly_spotify_error(code, data)
+
+    tracks = []
+    for entry in (data or {}).get("items", []):
+        track = (entry or {}).get("track") or {}
+
+        if not track or not track.get("uri"):
+            continue
+
+        artists = track.get("artists") or []
+
+        tracks.append({
+            "name": track.get("name", "Bez tytułu"),
+            "artist": ", ".join(a.get("name", "") for a in artists),
+            "uri": track.get("uri")
+        })
+
+    return tracks, None
+
+
 class SmartHubApp:
     def __init__(self, root):
         self.root = root
@@ -493,6 +557,10 @@ class SmartHubApp:
         self.spotify_last = spotify_status()
         self.search_query = ""
         self.search_results = []
+        self.playlists = []
+        self.playlist_tracks = []
+        self.current_playlist_uri = None
+        self.current_playlist_name = ""
 
         self.colors = {
             "bg": "#05070d",
@@ -520,7 +588,7 @@ class SmartHubApp:
         self.font_body = tkfont.Font(family="Arial", size=14)
         self.font_small = tkfont.Font(family="Arial", size=11)
         self.font_tiny = tkfont.Font(family="Arial", size=9)
-        self.font_tile_icon = tkfont.Font(family="Arial", size=34, weight="bold")
+        self.font_tile_icon = tkfont.Font(family="Arial", size=28, weight="bold")
 
         self.build_layout()
         self.show_home()
@@ -606,6 +674,7 @@ class SmartHubApp:
             ("⌂", "home", self.show_home),
             ("♫", "spotify", self.show_spotify),
             ("⌕", "search", self.show_spotify_search),
+            ("☷", "playlists", self.show_playlists),
             ("☁", "weather", self.show_weather),
             ("▣", "system", self.show_system),
             ("⚙", "settings", self.show_settings),
@@ -623,7 +692,7 @@ class SmartHubApp:
                 relief="flat",
                 command=command
             )
-            btn.pack(fill="both", expand=True, padx=8, pady=5)
+            btn.pack(fill="both", expand=True, padx=8, pady=4)
             btn.name = name
 
     def clear_content(self):
@@ -713,28 +782,28 @@ class SmartHubApp:
         page.pack(fill="both", expand=True)
 
         top = tk.Frame(page, bg=self.colors["panel"])
-        top.pack(fill="x", padx=22, pady=(20, 10))
+        top.pack(fill="x", padx=22, pady=(14, 8))
 
         left = tk.Frame(top, bg=self.colors["panel"])
         left.pack(side="left", fill="x", expand=True)
 
         tk.Label(left, text="Spotify Native", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
-        tk.Label(left, text="Odtwarzacz", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", pady=(5, 0))
+        tk.Label(left, text="Odtwarzacz", font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w", pady=(4, 0))
 
         actions = tk.Frame(top, bg=self.colors["panel"])
         actions.pack(side="right")
 
-        self.button(actions, "Autoryzuj", self.spotify_login, side="left", padx=4, ipadx=8, ipady=6)
-        self.button(actions, "Reset", self.spotify_logout, side="left", padx=4, ipadx=8, ipady=6, bg=self.colors["red"], fg="white")
-        self.button(actions, "Debug", self.show_spotify_debug, side="left", padx=4, ipadx=8, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(actions, "Autoryzuj", self.spotify_login, side="left", padx=3, ipadx=6, ipady=5)
+        self.button(actions, "Reset", self.spotify_logout, side="left", padx=3, ipadx=6, ipady=5, bg=self.colors["red"], fg="white")
+        self.button(actions, "Debug", self.show_spotify_debug, side="left", padx=3, ipadx=6, ipady=5, bg=self.colors["panel2"], fg=self.colors["text"])
 
         body = tk.Frame(page, bg=self.colors["panel"])
         body.pack(fill="both", expand=True, padx=22, pady=(0, 10))
 
-        album = tk.Frame(body, bg=self.colors["card"], width=210, height=210, highlightthickness=1, highlightbackground="#243244")
+        album = tk.Frame(body, bg=self.colors["card"], width=190, height=190, highlightthickness=1, highlightbackground="#243244")
         album.pack(side="left", padx=(0, 18), pady=8)
         album.pack_propagate(False)
-        tk.Label(album, text="♫", font=tkfont.Font(family="Arial", size=82, weight="bold"), bg=self.colors["card"], fg=self.colors["green"]).pack(expand=True)
+        tk.Label(album, text="♫", font=tkfont.Font(family="Arial", size=78, weight="bold"), bg=self.colors["card"], fg=self.colors["green"]).pack(expand=True)
 
         info = tk.Frame(body, bg=self.colors["panel"])
         info.pack(side="left", fill="both", expand=True)
@@ -752,32 +821,39 @@ class SmartHubApp:
             title = sp.get("track_name", "Spotify")
             artist = sp.get("artist_name", "")
 
-        tk.Label(info, text=title, font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"], wraplength=520, justify="left").pack(anchor="w", pady=(12, 0))
-        tk.Label(info, text=artist, font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"], wraplength=520, justify="left").pack(anchor="w", pady=(8, 0))
-
-        progress_text = f'{fmt_ms(sp.get("progress_ms", 0))} / {fmt_ms(sp.get("duration_ms", 0))}'
-        tk.Label(info, text=progress_text, font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(16, 4))
-
-        bar_bg = tk.Frame(info, bg="#263449", height=12)
-        bar_bg.pack(fill="x", pady=(0, 12))
-        bar_bg.pack_propagate(False)
+        tk.Label(info, text=title, font=self.font_h1, bg=self.colors["panel"], fg=self.colors["text"], wraplength=560, justify="left").pack(anchor="w", pady=(8, 0))
+        tk.Label(info, text=artist, font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"], wraplength=560, justify="left").pack(anchor="w", pady=(6, 0))
 
         duration = sp.get("duration_ms", 0) or 1
         progress = sp.get("progress_ms", 0) or 0
+        progress_text = f'{fmt_ms(progress)} / {fmt_ms(duration)}'
+        tk.Label(info, text=progress_text, font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(12, 4))
+
+        bar_bg = tk.Frame(info, bg="#263449", height=12)
+        bar_bg.pack(fill="x", pady=(0, 8))
+        bar_bg.pack_propagate(False)
+
         percent = max(1, min(100, int(progress / duration * 100)))
-        bar = tk.Frame(bar_bg, bg=self.colors["green"], width=max(8, int(520 * percent / 100)))
+        bar = tk.Frame(bar_bg, bg=self.colors["green"], width=max(8, int(560 * percent / 100)))
         bar.pack(side="left", fill="y")
 
         controls = tk.Frame(info, bg=self.colors["panel"])
-        controls.pack(anchor="w", pady=(8, 0))
+        controls.pack(anchor="w", pady=(4, 0))
 
-        self.button(controls, "⏮", lambda: self.spotify_control("previous"), side="left", padx=4, ipadx=12, ipady=8, bg=self.colors["panel2"], fg=self.colors["text"])
-        self.button(controls, "⏸" if sp.get("is_playing") else "▶", lambda: self.spotify_control("playpause"), side="left", padx=4, ipadx=18, ipady=8)
-        self.button(controls, "⏭", lambda: self.spotify_control("next"), side="left", padx=4, ipadx=12, ipady=8, bg=self.colors["panel2"], fg=self.colors["text"])
-        self.button(controls, "Szukaj", self.show_spotify_search, side="left", padx=12, ipadx=14, ipady=8)
+        self.button(controls, "⏮", lambda: self.spotify_control("previous"), side="left", padx=3, ipadx=10, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(controls, "⏸" if sp.get("is_playing") else "▶", lambda: self.spotify_control("playpause"), side="left", padx=3, ipadx=17, ipady=7)
+        self.button(controls, "⏭", lambda: self.spotify_control("next"), side="left", padx=3, ipadx=10, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(controls, "-15s", lambda: self.spotify_seek_relative(-15000), side="left", padx=8, ipadx=9, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(controls, "+15s", lambda: self.spotify_seek_relative(15000), side="left", padx=3, ipadx=9, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        row2 = tk.Frame(info, bg=self.colors["panel"])
+        row2.pack(anchor="w", pady=(10, 0))
+        self.button(row2, "Szukaj", self.show_spotify_search, side="left", padx=3, ipadx=14, ipady=7)
+        self.button(row2, "Playlisty", self.show_playlists, side="left", padx=8, ipadx=14, ipady=7)
+        self.button(row2, "Odśwież", self.show_spotify, side="left", padx=3, ipadx=14, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
 
         device = sp.get("device_name", "Brak urządzenia")
-        tk.Label(info, text=f"Urządzenie: {device}", font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=(20, 0))
+        tk.Label(info, text=f"Urządzenie: {device}", font=self.font_small, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=(14, 0))
 
         self.toast("Spotify")
 
@@ -847,6 +923,30 @@ class SmartHubApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def spotify_seek_relative(self, delta_ms):
+        status = spotify_status()
+
+        if not status.get("playing_track"):
+            self.toast("Brak utworu do przewijania")
+            return
+
+        new_pos = int(status.get("progress_ms", 0) or 0) + int(delta_ms)
+        duration = int(status.get("duration_ms", 0) or 0)
+        new_pos = max(0, min(new_pos, max(0, duration - 1000)))
+
+        def worker():
+            data, code = spotify_api(f"/me/player/seek?position_ms={new_pos}", method="PUT")
+
+            if code in (200, 204):
+                self.root.after(0, lambda: self.toast("Przewinięto"))
+            else:
+                self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+            self.root.after(600, self.show_spotify)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
     def show_spotify_debug(self):
         self.screen = "debug"
         self.clear_content()
@@ -889,7 +989,7 @@ class SmartHubApp:
         page.pack(fill="both", expand=True)
 
         head = tk.Frame(page, bg=self.colors["panel"])
-        head.pack(fill="x", padx=18, pady=(14, 6))
+        head.pack(fill="x", padx=16, pady=(10, 5))
 
         left = tk.Frame(head, bg=self.colors["panel"])
         left.pack(side="left", fill="x", expand=True)
@@ -897,8 +997,9 @@ class SmartHubApp:
         tk.Label(left, text="Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
         tk.Label(left, text="Wyszukiwarka", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
 
-        self.button(head, "Szukaj", self.spotify_search, side="right", padx=4, ipadx=12, ipady=7)
-        self.button(head, "Wyczyść", self.clear_search, side="right", padx=4, ipadx=12, ipady=7, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(head, "Wróć", self.show_spotify, side="right", padx=3, ipadx=10, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(head, "Szukaj", self.spotify_search, side="right", padx=3, ipadx=10, ipady=6)
+        self.button(head, "Wyczyść", self.clear_search, side="right", padx=3, ipadx=10, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
 
         self.search_label = tk.Label(
             page,
@@ -908,18 +1009,16 @@ class SmartHubApp:
             fg=self.colors["text"],
             anchor="w",
             padx=14,
-            pady=8
+            pady=7
         )
-        self.search_label.pack(fill="x", padx=18, pady=(0, 8))
+        self.search_label.pack(fill="x", padx=16, pady=(0, 6))
 
-        middle = tk.Frame(page, bg=self.colors["panel"])
-        middle.pack(fill="both", expand=True, padx=18)
+        self.results_frame = tk.Frame(page, bg=self.colors["panel"], height=190)
+        self.results_frame.pack(fill="both", expand=True, padx=16, pady=(0, 6))
+        self.results_frame.pack_propagate(False)
 
-        self.results_frame = tk.Frame(middle, bg=self.colors["panel"])
-        self.results_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-
-        self.keyboard_frame = tk.Frame(middle, bg=self.colors["card"], width=390, highlightthickness=1, highlightbackground="#243244")
-        self.keyboard_frame.pack(side="right", fill="y")
+        self.keyboard_frame = tk.Frame(page, bg=self.colors["card"], height=206, highlightthickness=1, highlightbackground="#243244")
+        self.keyboard_frame.pack(fill="x", padx=16, pady=(0, 10))
         self.keyboard_frame.pack_propagate(False)
 
         self.render_search_results()
@@ -935,33 +1034,35 @@ class SmartHubApp:
             list("QWERTYUIOP"),
             list("ASDFGHJKL"),
             list("ZXCVBNM"),
-            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+            list("1234567890"),
             ["SPACJA", "⌫", "ENTER"]
         ]
 
-        for row in rows:
+        for r, row in enumerate(rows):
             row_frame = tk.Frame(self.keyboard_frame, bg=self.colors["card"])
-            row_frame.pack(fill="x", padx=6, pady=4)
+            row_frame.pack(fill="x", padx=8, pady=3)
 
-            for key in row:
+            for c, key in enumerate(row):
                 if key == "SPACJA":
-                    width = 10
+                    width = 20
                 elif key == "ENTER":
+                    width = 10
+                elif key == "⌫":
                     width = 7
                 else:
-                    width = 3
+                    width = 4
 
                 btn = tk.Button(
                     row_frame,
                     text=key,
                     font=self.font_small,
                     width=width,
-                    bg=self.colors["panel2"] if key not in ("ENTER",) else self.colors["green"],
-                    fg=self.colors["text"] if key != "ENTER" else "#041107",
+                    bg=self.colors["green"] if key == "ENTER" else self.colors["panel2"],
+                    fg="#041107" if key == "ENTER" else self.colors["text"],
                     relief="flat",
                     command=lambda k=key: self.keyboard_press(k)
                 )
-                btn.pack(side="left", padx=2, ipady=5)
+                btn.pack(side="left", padx=3, ipady=5)
 
     def keyboard_press(self, key):
         if key == "⌫":
@@ -991,24 +1092,15 @@ class SmartHubApp:
         self.toast("Szukam...")
 
         def worker():
-            q = urllib.parse.urlencode({"q": query, "type": "track", "limit": 8})
-            data, code = spotify_api(f"/search?{q}")
+            items, error = spotify_search_tracks(query, limit=6)
 
-            if code != 200:
+            if error:
                 self.search_results = [{
-                    "name": friendly_spotify_error(code, data),
+                    "name": error,
                     "artist": "Błąd wyszukiwania",
                     "uri": None
                 }]
             else:
-                items = []
-                for track in (data or {}).get("tracks", {}).get("items", []):
-                    artists = track.get("artists") or []
-                    items.append({
-                        "name": track.get("name", "Bez tytułu"),
-                        "artist": ", ".join(a.get("name", "") for a in artists),
-                        "uri": track.get("uri")
-                    })
                 self.search_results = items
 
             self.root.after(0, self.show_spotify_search)
@@ -1026,17 +1118,17 @@ class SmartHubApp:
                 font=self.font_body,
                 bg=self.colors["panel"],
                 fg=self.colors["muted"]
-            ).pack(anchor="w", pady=10)
+            ).pack(anchor="w", pady=8)
             return
 
-        for item in self.search_results:
+        for item in self.search_results[:6]:
             row = tk.Frame(self.results_frame, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
-            row.pack(fill="x", pady=4)
+            row.pack(fill="x", pady=3)
 
             tk.Label(row, text="♫", font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=10)
 
             txt = tk.Frame(row, bg=self.colors["card"])
-            txt.pack(side="left", fill="x", expand=True, pady=8)
+            txt.pack(side="left", fill="x", expand=True, pady=6)
 
             tk.Label(txt, text=item["name"], font=self.font_small, bg=self.colors["card"], fg=self.colors["text"], anchor="w").pack(anchor="w")
             tk.Label(txt, text=item["artist"], font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"], anchor="w").pack(anchor="w")
@@ -1050,7 +1142,8 @@ class SmartHubApp:
                     fg="#041107",
                     relief="flat",
                     command=lambda uri=item["uri"]: self.spotify_play_track(uri)
-                ).pack(side="right", padx=8, ipadx=8, ipady=5)
+                ).pack(side="right", padx=8, ipadx=8, ipady=4)
+
 
     def spotify_play_track(self, uri):
         def worker():
@@ -1063,6 +1156,194 @@ class SmartHubApp:
                 self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def show_playlists(self):
+        self.screen = "playlists"
+        self.clear_content()
+
+        page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
+        page.pack(fill="both", expand=True)
+
+        head = tk.Frame(page, bg=self.colors["panel"])
+        head.pack(fill="x", padx=18, pady=(14, 8))
+
+        left = tk.Frame(head, bg=self.colors["panel"])
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(left, text="Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text="Playlisty", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
+
+        self.button(head, "Odśwież", self.load_playlists, side="right", padx=3, ipadx=10, ipady=6)
+        self.button(head, "Spotify", self.show_spotify, side="right", padx=3, ipadx=10, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        self.playlists_frame = tk.Frame(page, bg=self.colors["panel"])
+        self.playlists_frame.pack(fill="both", expand=True, padx=18, pady=(0, 12))
+
+        self.render_playlists()
+
+        if not self.playlists:
+            self.load_playlists()
+
+        self.toast("Playlisty")
+
+    def load_playlists(self):
+        self.toast("Ładuję playlisty...")
+
+        def worker():
+            items, error = spotify_get_playlists(limit=30)
+            if error:
+                self.playlists = [{"name": error, "total": 0, "id": None, "uri": None}]
+            else:
+                self.playlists = items
+
+            self.root.after(0, self.show_playlists)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def render_playlists(self):
+        for child in self.playlists_frame.winfo_children():
+            child.destroy()
+
+        if not self.playlists:
+            tk.Label(
+                self.playlists_frame,
+                text="Ładowanie playlist albo brak playlist.",
+                font=self.font_body,
+                bg=self.colors["panel"],
+                fg=self.colors["muted"]
+            ).pack(anchor="w", pady=8)
+            return
+
+        for playlist in self.playlists[:8]:
+            row = tk.Frame(self.playlists_frame, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+            row.pack(fill="x", pady=4)
+
+            tk.Label(row, text="☷", font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=12)
+
+            txt = tk.Frame(row, bg=self.colors["card"])
+            txt.pack(side="left", fill="x", expand=True, pady=8)
+
+            tk.Label(txt, text=playlist.get("name", "Playlista"), font=self.font_small, bg=self.colors["card"], fg=self.colors["text"], anchor="w").pack(anchor="w")
+            tk.Label(txt, text=f'{playlist.get("total", 0)} utworów', font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"], anchor="w").pack(anchor="w")
+
+            if playlist.get("id"):
+                tk.Button(
+                    row,
+                    text="Otwórz",
+                    font=self.font_small,
+                    bg=self.colors["green"],
+                    fg="#041107",
+                    relief="flat",
+                    command=lambda p=playlist: self.open_playlist(p)
+                ).pack(side="right", padx=8, ipadx=8, ipady=5)
+
+    def open_playlist(self, playlist):
+        self.current_playlist_uri = playlist.get("uri")
+        self.current_playlist_name = playlist.get("name", "Playlista")
+        self.playlist_tracks = []
+        self.show_playlist_detail(loading=True)
+
+        def worker():
+            tracks, error = spotify_get_playlist_tracks(playlist.get("id"), limit=50)
+            if error:
+                self.playlist_tracks = [{"name": error, "artist": "Błąd playlisty", "uri": None}]
+            else:
+                self.playlist_tracks = tracks
+
+            self.root.after(0, self.show_playlist_detail)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_playlist_detail(self, loading=False):
+        self.screen = "playlist_detail"
+        self.clear_content()
+
+        page = tk.Frame(self.content, bg=self.colors["panel"], highlightthickness=1, highlightbackground="#243244")
+        page.pack(fill="both", expand=True)
+
+        head = tk.Frame(page, bg=self.colors["panel"])
+        head.pack(fill="x", padx=18, pady=(14, 8))
+
+        left = tk.Frame(head, bg=self.colors["panel"])
+        left.pack(side="left", fill="x", expand=True)
+
+        tk.Label(left, text="Playlista", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text=self.current_playlist_name, font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"], wraplength=520, justify="left").pack(anchor="w")
+
+        self.button(head, "Play", self.play_current_playlist, side="right", padx=3, ipadx=12, ipady=6)
+        self.button(head, "Wróć", self.show_playlists, side="right", padx=3, ipadx=12, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        body = tk.Frame(page, bg=self.colors["panel"])
+        body.pack(fill="both", expand=True, padx=18, pady=(0, 12))
+
+        if loading:
+            tk.Label(body, text="Ładowanie utworów...", font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
+            return
+
+        if not self.playlist_tracks:
+            tk.Label(body, text="Brak utworów.", font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
+            return
+
+        for track in self.playlist_tracks[:8]:
+            row = tk.Frame(body, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+            row.pack(fill="x", pady=3)
+
+            tk.Label(row, text="♫", font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=10)
+
+            txt = tk.Frame(row, bg=self.colors["card"])
+            txt.pack(side="left", fill="x", expand=True, pady=6)
+
+            tk.Label(txt, text=track.get("name", "Utwór"), font=self.font_small, bg=self.colors["card"], fg=self.colors["text"], anchor="w").pack(anchor="w")
+            tk.Label(txt, text=track.get("artist", ""), font=self.font_tiny, bg=self.colors["card"], fg=self.colors["muted"], anchor="w").pack(anchor="w")
+
+            if track.get("uri"):
+                tk.Button(
+                    row,
+                    text="Play",
+                    font=self.font_small,
+                    bg=self.colors["green"],
+                    fg="#041107",
+                    relief="flat",
+                    command=lambda uri=track["uri"]: self.spotify_play_from_playlist(uri)
+                ).pack(side="right", padx=8, ipadx=8, ipady=4)
+
+    def play_current_playlist(self):
+        if not self.current_playlist_uri:
+            self.toast("Nie wybrano playlisty")
+            return
+
+        def worker():
+            data, code = spotify_api("/me/player/play", method="PUT", payload={"context_uri": self.current_playlist_uri})
+            if code in (200, 204):
+                self.root.after(0, lambda: self.toast("Odtwarzam playlistę"))
+                self.root.after(700, self.show_spotify)
+            else:
+                self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def spotify_play_from_playlist(self, track_uri):
+        if not self.current_playlist_uri:
+            return self.spotify_play_track(track_uri)
+
+        def worker():
+            data, code = spotify_api(
+                "/me/player/play",
+                method="PUT",
+                payload={
+                    "context_uri": self.current_playlist_uri,
+                    "offset": {"uri": track_uri}
+                }
+            )
+
+            if code in (200, 204):
+                self.root.after(0, lambda: self.toast("Odtwarzam utwór"))
+                self.root.after(700, self.show_spotify)
+            else:
+                self.root.after(0, lambda: self.toast(friendly_spotify_error(code, data)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
 
     def show_weather(self):
         self.screen = "weather"
@@ -1118,7 +1399,7 @@ class SmartHubApp:
             f"Redirect URI Spotify: {REDIRECT_URI}\n\n"
             "ESC wyłącza pełny ekran.\n"
             "F11 przełącza pełny ekran.\n\n"
-            "Kolejny etap: v4.2 Spotify Playlists + Devices."
+            "Kolejny etap: v4.3 Spotify Devices + Bluetooth."
         )
 
         tk.Label(

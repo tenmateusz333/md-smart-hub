@@ -1,6 +1,6 @@
-# MD Smart Hub OS v4.1 Spotify Native
+# MD Smart Hub OS v4.2 Big Spotify Update
 
-To jest wersja aplikacyjna z pierwszym natywnym modułem Spotify.
+To jest większa aktualizacja aplikacyjnej wersji MD Smart Hub.
 
 ## Co zawiera
 
@@ -8,13 +8,18 @@ To jest wersja aplikacyjna z pierwszym natywnym modułem Spotify.
 - dashboard,
 - pogoda,
 - system CPU/RAM/temp,
-- Spotify logowanie PKCE,
+- Spotify logowanie,
 - Spotify teraz gra,
 - play/pauza,
 - następny/poprzedni,
-- wyszukiwarka Spotify,
-- własna klawiatura ekranowa w aplikacji,
-- ekran Spotify Debug.
+- przewijanie utworu przyciskami -15s / +15s,
+- przebudowana wyszukiwarka,
+- większa klawiatura ekranowa,
+- pełne playlisty,
+- otwieranie playlist,
+- odtwarzanie playlisty,
+- odtwarzanie utworu z playlisty,
+- Spotify Debug.
 
 ## Uruchomienie na Raspberry
 
@@ -26,28 +31,6 @@ chmod +x scripts/*.sh
 ./scripts/start-app.sh
 ```
 
-## Logowanie Spotify
-
-1. Otwórz aplikację.
-2. Kliknij `Spotify`.
-3. Kliknij `Autoryzuj`.
-4. Otworzy się przeglądarka tylko do logowania.
-5. Zaloguj się.
-6. Po komunikacie `Spotify połączone` wróć do aplikacji.
-
 ## Ważne
 
-W Spotify Developer Dashboard musi być ustawiony Redirect URI:
-
-```text
-http://127.0.0.1:8765/callback
-```
-
-## Kolejny etap
-
-v4.2:
-- playlisty,
-- urządzenia Spotify,
-- głośność,
-- przewijanie utworu,
-- lepszy ekran odtwarzacza.
+Spotify Connect jako urządzenie Raspberry + Bluetooth soundbar będzie w kolejnym etapie.
