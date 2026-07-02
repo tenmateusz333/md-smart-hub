@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import subprocess
 import threading
@@ -16,7 +17,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import font as tkfont
 
-APP_VERSION = "v4.3 Devices + Bluetooth"
+APP_VERSION = "v4.4 Audio Stable"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
 CONFIG_PATH = DATA_ROOT / "config.json"
@@ -661,6 +662,52 @@ def bluetooth_status():
     if "Paired: yes" in info:
         return f"Zapamiętany, niepołączony: {mac}"
     return f"Zapisany MAC: {mac}"
+
+def system_volume_get():
+    out = run_cmd("pactl get-sink-volume @DEFAULT_SINK@")
+    if out:
+        m = re.search(r"(\d+)%", out)
+        if m:
+            return int(m.group(1))
+    out = run_cmd("wpctl get-volume @DEFAULT_AUDIO_SINK@")
+    if out:
+        m = re.search(r"Volume:\s*([0-9.]+)", out)
+        if m:
+            return int(float(m.group(1)) * 100)
+    out = run_cmd("amixer get Master")
+    if out:
+        m = re.search(r"\[(\d+)%\]", out)
+        if m:
+            return int(m.group(1))
+    return None
+
+def system_volume_set(value):
+    value = max(0, min(100, int(value)))
+    if command_exists("pactl"):
+        if os.system(f"pactl set-sink-volume @DEFAULT_SINK@ {value}% >/dev/null 2>&1") == 0:
+            return True
+    if command_exists("wpctl"):
+        if os.system(f"wpctl set-volume @DEFAULT_AUDIO_SINK@ {value/100:.2f} >/dev/null 2>&1") == 0:
+            return True
+    if command_exists("amixer"):
+        if os.system(f"amixer set Master {value}% >/dev/null 2>&1") == 0:
+            return True
+    return False
+
+def restart_user_service(service_name):
+    return os.system(f"systemctl --user restart {service_name} >/dev/null 2>&1") == 0
+
+def connect_saved_soundbar():
+    mac = bluetooth_saved_mac()
+    if not mac:
+        return False, "Brak zapisanego MAC soundbara."
+    os.system("bluetoothctl power on >/dev/null 2>&1")
+    os.system(f"bluetoothctl trust {mac} >/dev/null 2>&1")
+    rc = os.system(f"bluetoothctl connect {mac} >/dev/null 2>&1")
+    if rc == 0:
+        return True, f"Połączono soundbar {mac}"
+    return False, f"Nie udało się połączyć soundbara {mac}"
+
 
 
 class SmartHubApp:
@@ -1508,31 +1555,30 @@ class SmartHubApp:
         page.pack(fill="both", expand=True)
 
         head = tk.Frame(page, bg=self.colors["panel"])
-        head.pack(fill="x", padx=18, pady=(14, 8))
+        head.pack(fill="x", padx=18, pady=(12, 6))
 
         left = tk.Frame(head, bg=self.colors["panel"])
         left.pack(side="left", fill="x", expand=True)
+        tk.Label(left, text="Audio Stable", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
+        tk.Label(left, text="Spotify Connect + Bluetooth + Volume", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
 
-        tk.Label(left, text="Audio", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w")
-        tk.Label(left, text="Spotify Devices + Bluetooth", font=self.font_h2, bg=self.colors["panel"], fg=self.colors["text"]).pack(anchor="w")
-
-        self.button(head, "Odśwież", self.show_audio, side="right", padx=3, ipadx=10, ipady=6)
-        self.button(head, "Spotify", self.show_spotify, side="right", padx=3, ipadx=10, ipady=6, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(head, "Odśwież", self.show_audio, side="right", padx=3, ipadx=8, ipady=5)
+        self.button(head, "Spotify", self.show_spotify, side="right", padx=3, ipadx=8, ipady=5, bg=self.colors["panel2"], fg=self.colors["text"])
 
         body = tk.Frame(page, bg=self.colors["panel"])
-        body.pack(fill="both", expand=True, padx=18, pady=(0, 12))
+        body.pack(fill="both", expand=True, padx=18, pady=(0, 10))
 
-        top = tk.Frame(body, bg=self.colors["panel"])
-        top.pack(fill="x", pady=(0, 8))
+        status_row = tk.Frame(body, bg=self.colors["panel"])
+        status_row.pack(fill="x", pady=(0, 8))
 
-        status_box = tk.Frame(top, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+        status_box = tk.Frame(status_row, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
         status_box.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
         librespot_bin = "TAK" if command_exists("librespot") or (Path.home() / ".cargo/bin/librespot").exists() else "NIE"
         librespot_service = service_status("librespot-md-smart-hub.service")
         bt = bluetooth_status()
 
-        tk.Label(status_box, text="Status Raspberry Audio", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(12, 0))
+        tk.Label(status_box, text="Status audio", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(10, 0))
         tk.Label(
             status_box,
             text=f"Librespot: {librespot_bin}   Usługa: {librespot_service}\nBluetooth: {bt}",
@@ -1540,27 +1586,51 @@ class SmartHubApp:
             bg=self.colors["card"],
             fg=self.colors["muted"],
             justify="left",
-            wraplength=760
-        ).pack(anchor="w", padx=14, pady=(6, 12))
+            wraplength=610
+        ).pack(anchor="w", padx=14, pady=(5, 10))
 
-        vol_box = tk.Frame(top, bg=self.colors["card"], width=260, highlightthickness=1, highlightbackground="#243244")
-        vol_box.pack(side="right", fill="y")
-        vol_box.pack_propagate(False)
+        action_box = tk.Frame(status_row, bg=self.colors["card"], width=310, highlightthickness=1, highlightbackground="#243244")
+        action_box.pack(side="right", fill="y")
+        action_box.pack_propagate(False)
+        tk.Label(action_box, text="Szybkie akcje", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=12, pady=(8, 0))
+        rowa = tk.Frame(action_box, bg=self.colors["card"])
+        rowa.pack(anchor="w", padx=8, pady=(8, 6))
+        self.button(rowa, "Soundbar", self.connect_soundbar_action, side="left", padx=3, ipadx=6, ipady=4)
+        self.button(rowa, "Restart Connect", self.restart_connect_action, side="left", padx=3, ipadx=6, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        volume_row = tk.Frame(body, bg=self.colors["panel"])
+        volume_row.pack(fill="x", pady=(0, 8))
+
+        sp_box = tk.Frame(volume_row, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+        sp_box.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
         sp = spotify_status()
-        current_vol = sp.get("volume_percent")
-        vol_text = f"{current_vol}%" if isinstance(current_vol, int) else "--%"
-        tk.Label(vol_box, text="Głośność Spotify", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(12, 0))
-        tk.Label(vol_box, text=vol_text, font=self.font_h2, bg=self.colors["card"], fg=self.colors["text"]).pack(anchor="w", padx=14, pady=(4, 4))
+        spotify_vol = sp.get("volume_percent")
+        spotify_text = f"{spotify_vol}%" if isinstance(spotify_vol, int) else "--%"
 
-        rowv = tk.Frame(vol_box, bg=self.colors["card"])
+        tk.Label(sp_box, text="Głośność Spotify", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(10, 0))
+        tk.Label(sp_box, text=spotify_text, font=self.font_h2, bg=self.colors["card"], fg=self.colors["text"]).pack(anchor="w", padx=14, pady=(2, 2))
+        rowv = tk.Frame(sp_box, bg=self.colors["card"])
         rowv.pack(anchor="w", padx=10, pady=(0, 10))
-        self.button(rowv, "-10", lambda: self.change_volume(-10), side="left", padx=3, ipadx=6, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
-        self.button(rowv, "+10", lambda: self.change_volume(10), side="left", padx=3, ipadx=6, ipady=4)
-        self.button(rowv, "70%", lambda: self.set_volume(70), side="left", padx=3, ipadx=6, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(rowv, "-10", lambda: self.change_volume(-10), side="left", padx=3, ipadx=8, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(rowv, "+10", lambda: self.change_volume(10), side="left", padx=3, ipadx=8, ipady=4)
+        self.button(rowv, "70%", lambda: self.set_volume(70), side="left", padx=3, ipadx=8, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
 
-        tk.Label(body, text="Urządzenia Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(4, 4))
+        sys_box = tk.Frame(volume_row, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
+        sys_box.pack(side="right", fill="both", expand=True)
 
+        sys_vol = system_volume_get()
+        sys_text = f"{sys_vol}%" if isinstance(sys_vol, int) else "--%"
+
+        tk.Label(sys_box, text="Głośność systemowa Raspberry", font=self.font_small, bg=self.colors["card"], fg=self.colors["green"]).pack(anchor="w", padx=14, pady=(10, 0))
+        tk.Label(sys_box, text=sys_text, font=self.font_h2, bg=self.colors["card"], fg=self.colors["text"]).pack(anchor="w", padx=14, pady=(2, 2))
+        rows = tk.Frame(sys_box, bg=self.colors["card"])
+        rows.pack(anchor="w", padx=10, pady=(0, 10))
+        self.button(rows, "-10", lambda: self.change_system_volume(-10), side="left", padx=3, ipadx=8, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+        self.button(rows, "+10", lambda: self.change_system_volume(10), side="left", padx=3, ipadx=8, ipady=4)
+        self.button(rows, "80%", lambda: self.set_system_volume(80), side="left", padx=3, ipadx=8, ipady=4, bg=self.colors["panel2"], fg=self.colors["text"])
+
+        tk.Label(body, text="Urządzenia Spotify", font=self.font_small, bg=self.colors["panel"], fg=self.colors["green"]).pack(anchor="w", pady=(2, 4))
         devices_frame = tk.Frame(body, bg=self.colors["panel"])
         devices_frame.pack(fill="both", expand=True)
 
@@ -1573,15 +1643,15 @@ class SmartHubApp:
             tk.Label(devices_frame, text="Brak urządzeń Spotify. Uruchom Spotify na telefonie lub włącz usługę Spotify Connect.", font=self.font_body, bg=self.colors["panel"], fg=self.colors["muted"]).pack(anchor="w", pady=8)
             return
 
-        for device in devices[:7]:
+        for device in devices[:5]:
             row = tk.Frame(devices_frame, bg=self.colors["card"], highlightthickness=1, highlightbackground="#243244")
-            row.pack(fill="x", pady=4)
+            row.pack(fill="x", pady=3)
 
             icon = "✓" if device.get("is_active") else "🔊"
             tk.Label(row, text=icon, font=self.font_h2, bg=self.colors["card"], fg=self.colors["green"]).pack(side="left", padx=12)
 
             txt = tk.Frame(row, bg=self.colors["card"])
-            txt.pack(side="left", fill="x", expand=True, pady=8)
+            txt.pack(side="left", fill="x", expand=True, pady=6)
 
             name = device.get("name", "Urządzenie")
             sub = f"{device.get('type', 'device')} • {device.get('volume_percent', '--')}%"
@@ -1597,19 +1667,18 @@ class SmartHubApp:
                     fg="#041107",
                     relief="flat",
                     command=lambda did=device["id"]: self.transfer_device(did)
-                ).pack(side="right", padx=8, ipadx=8, ipady=5)
+                ).pack(side="right", padx=8, ipadx=8, ipady=4)
 
-        self.toast("Audio")
+        self.toast("Audio Stable")
 
     def set_volume(self, value):
         def worker():
             ok, error = spotify_set_volume(value)
             if ok:
-                self.root.after(0, lambda: self.toast(f"Głośność {value}%"))
+                self.root.after(0, lambda: self.toast(f"Spotify {value}%"))
             else:
-                self.root.after(0, lambda: self.toast(error or "Błąd głośności"))
+                self.root.after(0, lambda: self.toast(error or "Błąd głośności Spotify"))
             self.root.after(500, self.show_audio)
-
         threading.Thread(target=worker, daemon=True).start()
 
     def change_volume(self, delta):
@@ -1619,6 +1688,22 @@ class SmartHubApp:
             current = 50
         self.set_volume(max(0, min(100, current + delta)))
 
+    def set_system_volume(self, value):
+        def worker():
+            ok = system_volume_set(value)
+            if ok:
+                self.root.after(0, lambda: self.toast(f"System {value}%"))
+            else:
+                self.root.after(0, lambda: self.toast("Nie udało się zmienić głośności systemu"))
+            self.root.after(500, self.show_audio)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def change_system_volume(self, delta):
+        current = system_volume_get()
+        if not isinstance(current, int):
+            current = 50
+        self.set_system_volume(max(0, min(100, current + delta)))
+
     def transfer_device(self, device_id):
         def worker():
             ok, error = spotify_transfer_device(device_id, play=False)
@@ -1627,7 +1712,20 @@ class SmartHubApp:
             else:
                 self.root.after(0, lambda: self.toast(error or "Błąd urządzenia"))
             self.root.after(800, self.show_audio)
+        threading.Thread(target=worker, daemon=True).start()
 
+    def connect_soundbar_action(self):
+        def worker():
+            ok, msg = connect_saved_soundbar()
+            self.root.after(0, lambda: self.toast(msg))
+            self.root.after(900, self.show_audio)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def restart_connect_action(self):
+        def worker():
+            ok = restart_user_service("librespot-md-smart-hub.service")
+            self.root.after(0, lambda: self.toast("Restart Spotify Connect OK" if ok else "Nie udało się zrestartować Spotify Connect"))
+            self.root.after(900, self.show_audio)
         threading.Thread(target=worker, daemon=True).start()
 
 

@@ -1,19 +1,23 @@
-# MD Smart Hub OS v4.3 Devices + Bluetooth
+# MD Smart Hub OS v4.4 Audio Stable
 
-To jest aktualizacja pod Raspberry jako centrum audio.
+Ta wersja stabilizuje tor audio:
 
-## Co zawiera aplikacja
+```text
+Spotify → Raspberry Pi / MD Smart Hub → Bluetooth → Soundbar
+```
 
-- ekran Audio,
-- lista urządzeń Spotify,
-- wybór urządzenia Spotify,
-- regulacja głośności Spotify,
+## Co dodano
+
+- głośność Spotify,
+- głośność systemowa Raspberry,
+- przycisk `Soundbar` w aplikacji,
+- przycisk `Restart Connect`,
+- lepszy ekran Audio,
+- status Bluetooth,
 - status Librespot,
-- status Bluetooth soundbara,
-- przygotowanie do Spotify Connect,
-- skrypty Bluetooth.
+- autostart audio.
 
-## Standardowa aktualizacja
+## Aktualizacja
 
 ```bash
 cd ~/md-smart-hub
@@ -21,51 +25,27 @@ git reset --hard
 git pull
 chmod +x scripts/*.sh
 ./scripts/install.sh
-./scripts/start-app.sh
-```
-
-## Instalacja Spotify Connect na Raspberry
-
-Uruchom raz:
-
-```bash
-cd ~/md-smart-hub
-./scripts/install-spotify-connect.sh
-```
-
-To może potrwać długo, bo Raspberry może budować librespot.
-
-Po zakończeniu w Spotify na telefonie powinno pojawić się urządzenie:
-
-```text
-MD Smart Hub
-```
-
-## Parowanie soundbara Bluetooth
-
-1. Włącz soundbar w tryb parowania.
-2. Na Raspberry:
-
-```bash
-cd ~/md-smart-hub
-./scripts/bluetooth-scan.sh
-```
-
-3. Znajdź MAC soundbara.
-4. Połącz:
-
-```bash
-./scripts/bluetooth-pair-connect.sh AA:BB:CC:DD:EE:FF
-```
-
-## Start z audio
-
-Gdy Spotify Connect i soundbar są już ustawione:
-
-```bash
 ./scripts/start-audio-app.sh
 ```
 
-## Cel
+## Autostart audio
 
-Spotify → Raspberry Pi jako Spotify Connect → Bluetooth → Soundbar
+Gdy wszystko działa, włącz autostart:
+
+```bash
+cd ~/md-smart-hub
+./scripts/install-audio-autostart.sh
+```
+
+Po restarcie Raspberry powinno automatycznie:
+
+1. połączyć soundbar Bluetooth,
+2. uruchomić Spotify Connect,
+3. uruchomić aplikację.
+
+## Ważne
+
+W ekranie Audio są teraz dwie głośności:
+
+- `Głośność Spotify` — steruje poziomem Spotify,
+- `Głośność systemowa Raspberry` — steruje końcowym wyjściem audio na soundbar.
