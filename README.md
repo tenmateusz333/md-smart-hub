@@ -2,15 +2,23 @@
 
 ## Aktualna wersja
 
-v2.4.1 Spotify UI Fix
+v3.0 RC1
 
-## Co poprawiono
+To jest kandydat testowy. RC1 skupia się na stabilnym froncie i Spotify API. Spotify Connect na Raspberry + Bluetooth soundbar będzie w RC2.
 
-- skalowanie 1024x600
-- ekran Spotify
-- playlisty i wyszukiwarka
-- przewijane listy
-- własna klawiatura ekranowa
+## Co zawiera RC1
+
+- nowy układ 1024x600
+- boczne menu
+- nowy odtwarzacz Spotify
+- przewijanie utworu
+- wyszukiwarka Spotify
+- otwieranie playlist
+- lista utworów w playliście
+- odtwarzanie utworu z playlisty
+- wybór urządzenia Spotify
+- nowa czytelna klawiatura ekranowa
+- lepsze komunikaty błędów
 
 ## Po aktualizacji
 
@@ -19,4 +27,20 @@ cd ~/md-smart-hub
 git pull
 pkill -f server.py
 python3 backend/server.py
+```
+
+Jeżeli Spotify działa dziwnie po aktualizacji:
+
+1. W panelu kliknij `Reset`.
+2. Kliknij `Autoryzuj`.
+3. Zaakceptuj zgody Spotify.
+4. Włącz muzykę na telefonie/komputerze.
+5. W panelu wejdź w `Urządzenia` i odśwież.
+
+## Spotify Redirect URI
+
+W Spotify Developer Dashboard musi być:
+
+```text
+http://127.0.0.1:8765/callback
 ```

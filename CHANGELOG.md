@@ -1,11 +1,18 @@
 # CHANGELOG
 
-## v2.4.1
-- Naprawiono skalowanie na ekranie 1024x600.
-- Naprawiono ekran playlist i wyszukiwania.
-- Dodano własną klawiaturę ekranową do wyszukiwarki.
-- Poprawiono układ Spotify pod ekran 7 cali.
-- Dodano bezpieczne przewijanie list wyników.
+## v3.0 RC1
+- Przebudowany frontend pod ekran 1024x600.
+- Dodane boczne menu modułów.
+- Przebudowany ekran Spotify.
+- Dodany seek bar do przewijania utworu.
+- Naprawione wyszukiwanie Spotify.
+- Naprawione playlisty.
+- Dodany ekran szczegółów playlisty.
+- Dodane odtwarzanie utworu z playlisty.
+- Dodana nowa klawiatura ekranowa.
+- Poprawione przewijanie list.
+- Poprawione komunikaty błędów Spotify.
 
-## v2.4
-- Ukończona integracja Spotify.
+## v2.4.1
+- Naprawiono skalowanie.
+- Dodano klawiaturę ekranową.

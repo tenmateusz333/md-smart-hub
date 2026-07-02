@@ -2,160 +2,100 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=1024, height=600, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>MD Smart Hub OS</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div id="boot">
-    <div class="boot-mark">MD</div>
-    <div class="boot-name">SMART HUB OS</div>
-    <div class="boot-version">v2.4.1</div>
-  </div>
+<div id="boot"><div class="boot-logo">MD</div><div class="boot-title">SMART HUB OS</div><div class="boot-version">v3.0 RC1</div></div>
 
-  <main class="app">
+<main class="app">
+  <aside class="sidebar glass">
+    <button onclick="showScreen('home')" class="nav active" data-target="home">🏠</button>
+    <button onclick="showScreen('spotify')" class="nav" data-target="spotify">🎵</button>
+    <button onclick="showScreen('search')" class="nav" data-target="search">🔎</button>
+    <button onclick="showScreen('playlists')" class="nav" data-target="playlists">📚</button>
+    <button onclick="showScreen('devices')" class="nav" data-target="devices">🔊</button>
+    <button onclick="showScreen('system')" class="nav" data-target="system">🖥️</button>
+  </aside>
+
+  <section class="workspace">
     <header class="topbar">
-      <div>
-        <div id="time" class="time">--:--</div>
-        <div id="date" class="date">Ładowanie...</div>
-      </div>
-
-      <div class="status-strip">
-        <span id="wifi">Wi‑Fi</span>
-        <span id="spotifyStatus">Spotify</span>
-        <span id="topTemp">CPU --°C</span>
-        <span class="user-dot">MD</span>
-      </div>
+      <div><div id="time" class="time">--:--</div><div id="date" class="date">Ładowanie...</div></div>
+      <div class="status-strip"><span id="wifi">Wi‑Fi</span><span id="spotifyStatus">Spotify</span><span id="topTemp">CPU --°C</span><span class="user-dot">MD</span></div>
     </header>
 
     <section id="home" class="screen active">
-      <div class="main-layout">
-        <section class="hero glass">
-          <div>
-            <p class="eyebrow">Dashboard</p>
-            <h1>MD Smart Hub</h1>
-            <p class="muted">Panel sterowania pokojem, muzyką i smart home.</p>
-          </div>
-          <button onclick="showScreen('system')">System</button>
-        </section>
-
-        <section class="media-card glass" onclick="showScreen('spotify')">
-          <div class="media-top"><span class="spotify-logo">●</span><strong>Spotify</strong></div>
-          <div class="cover" id="homeCover">🎧</div>
-          <div>
-            <h3 id="homeTrack">Spotify</h3>
-            <p id="homeArtist" class="muted">Dotknij, żeby otworzyć.</p>
-          </div>
-        </section>
-
-        <section class="tiles">
-          <button class="tile weather-tile" onclick="showScreen('weather')"><span class="tile-icon" id="homeWeatherIcon">🌤️</span><small>Pogoda</small><strong id="weatherTile">--°C</strong></button>
-          <button class="tile system-tile" onclick="showScreen('system')"><span class="tile-icon">🖥️</span><small>Raspberry</small><strong id="tempTile">--°C</strong></button>
-          <button class="tile" onclick="showScreen('spotifySearch')"><span class="tile-icon">🔎</span><small>Szukaj</small><strong>Utwory</strong></button>
-          <button class="tile" onclick="showScreen('playlists')"><span class="tile-icon">📚</span><small>Spotify</small><strong>Playlisty</strong></button>
-        </section>
+      <div class="home-grid">
+        <div class="hero glass">
+          <p class="eyebrow">Dashboard</p><h1>MD Smart Hub</h1>
+          <p class="muted">System sterowania muzyką, pokojem i Raspberry Pi.</p>
+          <button onclick="showScreen('spotify')">Otwórz Spotify</button>
+        </div>
+        <div class="mini-player glass" onclick="showScreen('spotify')">
+          <div class="mini-cover" id="homeCover">🎧</div>
+          <div><p class="eyebrow">Teraz gra</p><h2 id="homeTrack">Spotify</h2><p id="homeArtist" class="muted">Dotknij, żeby otworzyć.</p></div>
+        </div>
+        <button class="tile glass" onclick="showScreen('search')"><span>🔎</span><small>Spotify</small><strong>Wyszukiwarka</strong></button>
+        <button class="tile glass" onclick="showScreen('playlists')"><span>📚</span><small>Spotify</small><strong>Playlisty</strong></button>
+        <button class="tile glass" onclick="showScreen('weather')"><span id="homeWeatherIcon">🌤️</span><small>Pogoda</small><strong id="weatherTile">--°C</strong></button>
+        <button class="tile glass" onclick="showScreen('system')"><span>🖥️</span><small>Raspberry</small><strong id="tempTile">--°C</strong></button>
       </div>
     </section>
 
     <section id="spotify" class="screen">
-      <div class="panel glass player-panel">
-        <div class="screen-head">
-          <button class="back" onclick="showScreen('home')">←</button>
-          <div><p class="eyebrow">Muzyka</p><h2>Spotify</h2></div>
-        </div>
-
-        <div class="player-content">
-          <div class="album premium" id="spotifyCover">🎧</div>
-
-          <div class="track-area">
-            <h3 id="spotifyTitle">Spotify</h3>
-            <p id="spotifyArtist" class="muted">Połącz konto Spotify.</p>
-
-            <div class="progress"><i id="spotifyProgress"></i></div>
-            <div class="time-row"><span id="spotifyElapsed">0:00</span><span id="spotifyDuration">0:00</span></div>
-
-            <div class="controls big-controls">
-              <button onclick="spotifyControl('previous')">⏮</button>
-              <button id="spotifyPlay" class="play" onclick="spotifyControl('playpause')">▶</button>
-              <button onclick="spotifyControl('next')">⏭</button>
-            </div>
-
-            <div class="volume-row">
-              <span>🔊</span>
-              <input id="volumeSlider" type="range" min="0" max="100" value="50" onchange="setSpotifyVolume(this.value)">
-              <strong id="volumeText">--%</strong>
-            </div>
-          </div>
-        </div>
-
-        <div class="spotify-actions">
-          <button onclick="showScreen('spotifySearch')">Szukaj</button>
-          <button onclick="showScreen('playlists')">Playlisty</button>
-          <button onclick="showScreen('devices')">Urządzenia</button>
-          <button id="spotifyLoginBtn" onclick="connectSpotify()">Autoryzuj</button>
-          <button onclick="disconnectSpotify()">Reset</button>
+      <div class="player glass">
+        <div class="player-left"><div id="spotifyCover" class="album">🎧</div></div>
+        <div class="player-right">
+          <p class="eyebrow">Spotify</p><h1 id="spotifyTitle">Spotify</h1><p id="spotifyArtist" class="muted">Połącz konto Spotify albo włącz muzykę.</p>
+          <div class="seek-wrap"><input id="seekSlider" class="seek" type="range" min="0" max="1000" value="0" oninput="previewSeek(this.value)" onchange="setSpotifySeek(this.value)"><div class="time-row"><span id="spotifyElapsed">0:00</span><span id="spotifyDuration">0:00</span></div></div>
+          <div class="controls"><button onclick="spotifyControl('previous')">⏮</button><button id="spotifyPlay" class="play" onclick="spotifyControl('playpause')">▶</button><button onclick="spotifyControl('next')">⏭</button></div>
+          <div class="volume-row"><span>🔊</span><input id="volumeSlider" type="range" min="0" max="100" value="50" onchange="setSpotifyVolume(this.value)"><strong id="volumeText">--%</strong></div>
+          <div class="quick-actions"><button onclick="connectSpotify()">Autoryzuj</button><button onclick="disconnectSpotify()">Reset</button><button onclick="loadSpotify()">Odśwież</button></div>
         </div>
       </div>
     </section>
 
-    <section id="spotifySearch" class="screen">
-      <div class="panel glass list-panel">
-        <div class="screen-head">
-          <button class="back" onclick="hideKeyboard();showScreen('spotify')">←</button>
-          <div><p class="eyebrow">Spotify</p><h2>Szukaj</h2></div>
-        </div>
-
-        <div class="search-row">
-          <input id="searchInput" readonly placeholder="Dotknij i wpisz utwór" onclick="openKeyboard()">
-          <button onclick="searchSpotify()">Szukaj</button>
-        </div>
-
-        <div id="searchResults" class="result-list">
-          <p class="muted">Wyniki wyszukiwania pojawią się tutaj.</p>
-        </div>
+    <section id="search" class="screen">
+      <div class="list-page glass">
+        <div class="page-head"><div><p class="eyebrow">Spotify</p><h1>Szukaj utworu</h1></div><button onclick="showScreen('spotify')">Odtwarzacz</button></div>
+        <div class="search-row"><input id="searchInput" readonly placeholder="Dotknij, żeby pisać" onclick="openKeyboard('searchInput')"><button onclick="searchSpotify()">Szukaj</button></div>
+        <div id="searchResults" class="result-list"><p class="muted">Wpisz nazwę utworu, wykonawcy albo albumu.</p></div>
       </div>
     </section>
 
     <section id="playlists" class="screen">
-      <div class="panel glass list-panel">
-        <div class="screen-head">
-          <button class="back" onclick="showScreen('spotify')">←</button>
-          <div><p class="eyebrow">Spotify</p><h2>Playlisty</h2></div>
-        </div>
+      <div class="list-page glass">
+        <div class="page-head"><div><p class="eyebrow">Spotify</p><h1>Twoje playlisty</h1></div><button onclick="loadPlaylists()">Odśwież</button></div>
+        <div id="playlistResults" class="result-list"><p class="muted">Ładowanie playlist...</p></div>
+      </div>
+    </section>
 
-        <button class="wide" onclick="loadPlaylists()">Odśwież playlisty</button>
-        <div id="playlistResults" class="result-list">
-          <p class="muted">Kliknij odśwież, żeby pobrać playlisty.</p>
-        </div>
+    <section id="playlistDetail" class="screen">
+      <div class="list-page glass">
+        <div class="page-head"><div><p class="eyebrow">Playlista</p><h1 id="playlistTitle">Playlista</h1></div><div class="head-actions"><button onclick="playCurrentPlaylist()">Play</button><button onclick="showScreen('playlists')">Wróć</button></div></div>
+        <div id="playlistTracks" class="result-list"><p class="muted">Ładowanie utworów...</p></div>
       </div>
     </section>
 
     <section id="devices" class="screen">
-      <div class="panel glass list-panel">
-        <div class="screen-head">
-          <button class="back" onclick="showScreen('spotify')">←</button>
-          <div><p class="eyebrow">Spotify</p><h2>Urządzenia</h2></div>
-        </div>
-
-        <button class="wide" onclick="loadDevices()">Odśwież urządzenia</button>
-        <div id="deviceResults" class="result-list">
-          <p class="muted">Włącz Spotify na telefonie/PC, potem kliknij odśwież.</p>
-        </div>
+      <div class="list-page glass">
+        <div class="page-head"><div><p class="eyebrow">Spotify Connect</p><h1>Urządzenia</h1></div><button onclick="loadDevices()">Odśwież</button></div>
+        <div id="deviceResults" class="result-list"><p class="muted">Włącz Spotify na telefonie albo komputerze, potem odśwież.</p></div>
       </div>
     </section>
 
     <section id="weather" class="screen">
-      <div class="panel glass weather-panel">
-        <div class="screen-head"><button class="back" onclick="showScreen('home')">←</button><div><p class="eyebrow">Online</p><h2>Pogoda</h2></div></div>
-        <div class="weather-main"><div id="weatherIcon">🌤️</div><div><strong id="weatherTemp">--°C</strong><p id="weatherDesc" class="muted">Ładowanie...</p></div></div>
-        <div class="mini-grid"><div><small>Miasto</small><strong id="city">Warszawa</strong></div><div><small>Wiatr</small><strong id="wind">-- km/h</strong></div></div>
+      <div class="weather glass">
+        <div id="weatherIcon">🌤️</div><div><p class="eyebrow">Pogoda</p><h1 id="weatherTemp">--°C</h1><p id="weatherDesc" class="muted">Ładowanie...</p></div>
+        <div class="weather-grid"><div><small>Miasto</small><strong id="city">Warszawa</strong></div><div><small>Wiatr</small><strong id="wind">-- km/h</strong></div></div>
       </div>
     </section>
 
     <section id="system" class="screen">
-      <div class="panel glass">
-        <div class="screen-head"><button class="back" onclick="showScreen('home')">←</button><div><p class="eyebrow">Raspberry</p><h2>System</h2></div></div>
-        <div class="system-grid">
+      <div class="system-page glass">
+        <div class="page-head"><div><p class="eyebrow">Raspberry</p><h1>System</h1></div></div>
+        <div class="metric-grid">
           <div class="metric"><small>CPU temp</small><strong id="cpuTemp">--°C</strong><div class="bar"><i id="tempBar"></i></div></div>
           <div class="metric"><small>CPU load</small><strong id="cpuLoad">--%</strong><div class="bar"><i id="cpuBar"></i></div></div>
           <div class="metric"><small>RAM</small><strong id="ram">--%</strong><div class="bar"><i id="ramBar"></i></div></div>
@@ -164,20 +104,16 @@
       </div>
     </section>
 
-    <footer class="bottom glass">
-      <div><strong>MD Smart Hub OS v2.4.1</strong><span id="toast">System gotowy</span></div>
-      <button onclick="location.reload()">Odśwież</button>
-    </footer>
-  </main>
+    <footer class="bottom glass"><div><strong>MD Smart Hub OS v3.0 RC1</strong><span id="toast">System gotowy</span></div><button onclick="location.reload()">Odśwież</button></footer>
+  </section>
+</main>
 
-  <div id="keyboard" class="keyboard hidden">
-    <div class="keyboard-head">
-      <strong>Szukaj Spotify</strong>
-      <button onclick="hideKeyboard()">Zamknij</button>
-    </div>
-    <div class="keys" id="keys"></div>
-  </div>
+<div id="keyboard" class="keyboard hidden">
+  <div class="keyboard-head"><strong>Klawiatura</strong><button onclick="hideKeyboard()">Zamknij</button></div>
+  <div class="keyboard-preview" id="keyboardPreview"></div>
+  <div class="keys" id="keys"></div>
+</div>
 
-  <script src="js/script.js"></script>
+<script src="js/script.js"></script>
 </body>
 </html>
