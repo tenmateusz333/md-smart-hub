@@ -235,23 +235,48 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response({"items": items})
 
         if self.path.startswith("/api/spotify/playlist/") and self.path.endswith("/tracks"):
-            parts = self.path.split("/")
-            playlist_id = urllib.parse.unquote(parts[4]) if len(parts) >= 6 else ""
+            playlist_id = playlist_id_from_path(self.path)
+
             if not playlist_id:
                 return self.json_response({"items": [], "error": "Brak ID playlisty"})
-            query = urllib.parse.urlencode({"limit": 50, "fields": "items(track(name,uri,artists(name),album(images))),next"})
+
+            # RC1.3: use the simplest endpoint first. If Spotify refuses, return a diagnostic code.
+            query = urllib.parse.urlencode({"limit": 50})
             data, code = spotify_api(f"/playlists/{playlist_id}/tracks?{query}")
+
+            # Some Spotify playlist items can fail when a track is unavailable. Keep the API call simple.
             if code != 200:
-                return self.json_response({"items": [], "error": friendly_spotify_error(code, data)})
+                try:
+                    raw = json.dumps(data, ensure_ascii=False)[:320]
+                except Exception:
+                    raw = str(data)[:320]
+
+                return self.json_response({
+                    "items": [],
+                    "error": f"{friendly_spotify_error(code, data)} Kod: {code}. Szczegóły: {raw}"
+                })
+
             items = []
             for entry in (data or {}).get("items", []):
                 track = entry.get("track") or {}
+
+                if not track or track.get("type") != "track":
+                    continue
+
                 album = track.get("album") or {}
                 images = album.get("images") or []
                 artists = track.get("artists") or []
+
                 if not track.get("uri"):
                     continue
-                items.append({"name": track.get("name"), "subtitle": ", ".join(a.get("name", "") for a in artists), "uri": track.get("uri"), "image": images[0]["url"] if images else None})
+
+                items.append({
+                    "name": track.get("name"),
+                    "subtitle": ", ".join(a.get("name", "") for a in artists),
+                    "uri": track.get("uri"),
+                    "image": images[0]["url"] if images else None
+                })
+
             return self.json_response({"items": items})
 
         if self.path == "/api/spotify/devices":
@@ -262,6 +287,15 @@ class Handler(SimpleHTTPRequestHandler):
             for d in (data or {}).get("devices", []):
                 items.append({"id": d.get("id"), "name": d.get("name") + (" ✓" if d.get("is_active") else ""), "subtitle": f"{d.get('type', 'device')} • {d.get('volume_percent', '--')}%", "image": None})
             return self.json_response({"items": items})
+
+
+        if self.path == "/api/debug/version":
+            tokens = read_json(TOKENS_FILE, {})
+            return self.json_response({
+                "version": "v3.0 RC1.3",
+                "scope": tokens.get("scope", ""),
+                "playlist_route": "diagnostic-v2"
+            })
 
         if self.path == "/spotify/login":
             verifier, challenge = create_pkce_pair()
@@ -349,5 +383,5 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     os.chdir(FRONTEND_ROOT)
     server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
-    print("MD Smart Hub OS v3.0 RC1 running at http://127.0.0.1:8765")
+    print("MD Smart Hub OS v3.0 RC1.3 running at http://127.0.0.1:8765")
     server.serve_forever()

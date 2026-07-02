@@ -8,7 +8,7 @@ function buildKeyboard(){const rows=[
 [["A","a"],["S","s"],["D","d"],["F","f"],["G","g"],["H","h"],["J","j"],["K","k"],["L","l"],["⌫","back","special backspace"]],
 [["Z","z"],["X","x"],["C","c"],["V","v"],["B","b"],["N","n"],["M","m"],["Ą","ą","pl"],["Ę","ę","pl"],["Ó","ó","pl"]],
 [["Ł","ł","pl"],["Ń","ń","pl"],["Ś","ś","pl"],["Ż","ż","pl"],["Ź","ź","pl"],["spacja","space","special space"],["Szukaj","enter","special enter"]]
-];const box=$("keys");box.innerHTML="";rows.forEach(row=>{const rowEl=document.createElement("div");rowEl.className="key-row";row.forEach(k=>{rowEl.appendChild(keyButton(k[0],k[1],k[2]||""))});box.appendChild(rowEl)})}
+];const box=$("keys");box.innerHTML="";rows.forEach(row=>{const rowEl=document.createElement("div");rowEl.className="key-row";row.forEach(k=>rowEl.appendChild(keyButton(k[0],k[1],k[2]||"")));box.appendChild(rowEl)})}
 function keyButton(label,value,cls=""){const b=document.createElement("button");b.className="key "+cls;b.textContent=label;b.onclick=()=>pressKey(value);return b}
 function openKeyboard(inputId){keyboardTarget=$(inputId);$("keyboard").classList.remove("hidden");updateKeyboardPreview()}
 function hideKeyboard(){$("keyboard").classList.add("hidden")}

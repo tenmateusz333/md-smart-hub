@@ -1,3 +1,10 @@
+## v3.0 RC1.3 Fix
+- Wymuszono poprawkę playlist bezpośrednio w backend/server.py.
+- Dodano diagnostykę `Kod:` przy błędach playlist Spotify.
+- Dodano `/api/debug/version` do sprawdzenia, czy działa właściwy backend.
+- Zmieniono napis wersji w panelu na v3.0 RC1.3.
+- Dodatkowo dociśnięto układ klawiatury.
+
 ## v3.0 RC1.2 Fix
 - Twarda poprawka klawiatury: wymuszony poziomy układ QWERTY.
 - Przepisano listy Spotify na bezpieczne przyciski JS.
