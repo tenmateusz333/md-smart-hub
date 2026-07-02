@@ -2,22 +2,37 @@
 
 ## Aktualna wersja
 
-v2.3 Spotify Premium
+v2.4 Spotify Complete
 
-## Spotify
+## Ważne po aktualizacji
 
-Redirect URI:
+Po wgraniu v2.4 kliknij w panelu:
+
+```text
+Reset Spotify
+```
+
+Potem:
+
+```text
+Połącz Spotify / Autoryzuj
+```
+
+Spotify musi pokazać ekran zgody z nowymi uprawnieniami.
+
+## Spotify Redirect URI
+
+W Spotify Developer Dashboard musi być:
 
 ```text
 http://127.0.0.1:8765/callback
 ```
 
-Po aktualizacji v2.3 kliknij ponownie `Połącz Spotify`, żeby zatwierdzić nowe uprawnienia do playlist.
-
 ## Test na Raspberry
 
 ```bash
 cd ~/md-smart-hub
+pkill -f server.py
 python3 backend/server.py
 ```
 

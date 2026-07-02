@@ -10,7 +10,7 @@
   <div id="boot">
     <div class="boot-mark">MD</div>
     <div class="boot-name">SMART HUB OS</div>
-    <div class="boot-version">v2.3</div>
+    <div class="boot-version">v2.4</div>
   </div>
 
   <main class="app">
@@ -50,7 +50,7 @@
           </div>
           <div class="cover" id="homeCover">🎧</div>
           <div>
-            <h3 id="homeTrack">Web Player</h3>
+            <h3 id="homeTrack">Spotify</h3>
             <p id="homeArtist" class="muted">Dotknij, żeby otworzyć odtwarzacz.</p>
           </div>
         </section>
@@ -118,9 +118,13 @@
         <div class="spotify-actions">
           <button onclick="showScreen('spotifySearch')">Szukaj</button>
           <button onclick="showScreen('playlists')">Playlisty</button>
+          <button onclick="showScreen('devices')">Urządzenia</button>
         </div>
 
-        <button id="spotifyLoginBtn" class="wide" onclick="connectSpotify()">Połącz Spotify</button>
+        <div class="spotify-actions">
+          <button id="spotifyLoginBtn" onclick="connectSpotify()">Połącz Spotify</button>
+          <button onclick="disconnectSpotify()">Reset Spotify</button>
+        </div>
       </div>
     </section>
 
@@ -135,7 +139,7 @@
         </div>
 
         <div class="search-row">
-          <input id="searchInput" placeholder="Wpisz utwór lub artystę">
+          <input id="searchInput" placeholder="Wpisz utwór lub artystę" onkeydown="if(event.key==='Enter')searchSpotify()">
           <button onclick="searchSpotify()">Szukaj</button>
         </div>
 
@@ -158,6 +162,23 @@
         <button class="wide" onclick="loadPlaylists()">Odśwież playlisty</button>
         <div id="playlistResults" class="result-list">
           <p class="muted">Kliknij odśwież, żeby pobrać playlisty.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="devices" class="screen">
+      <div class="panel glass list-panel">
+        <div class="screen-head">
+          <button class="back" onclick="showScreen('spotify')">←</button>
+          <div>
+            <p class="eyebrow">Spotify</p>
+            <h2>Urządzenia</h2>
+          </div>
+        </div>
+
+        <button class="wide" onclick="loadDevices()">Odśwież urządzenia</button>
+        <div id="deviceResults" class="result-list">
+          <p class="muted">Włącz Spotify na telefonie/PC/Raspberry, potem kliknij odśwież.</p>
         </div>
       </div>
     </section>
@@ -208,7 +229,7 @@
 
     <footer class="bottom glass">
       <div>
-        <strong>MD Smart Hub OS v2.3</strong>
+        <strong>MD Smart Hub OS v2.4</strong>
         <span id="toast">System gotowy</span>
       </div>
       <button onclick="location.reload()">Odśwież</button>
